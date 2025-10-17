@@ -22,7 +22,7 @@ public sealed class MongoTaskRepository : ITaskRepository
             Builders<TaskItem>.Filter.Eq(t => t.Id, objectId),
             Builders<TaskItem>.Filter.Eq(t => t.IsDeleted, false));
 
-        return await _tasks.Find(filter).FirstOrDefaultAsync(cancellationToken).ConfigureAwait(false);
+        return await _tasks.Find(filter).FirstOrDefaultAsync(cancellationToken);
     }
 
     public async Task<(IReadOnlyList<TaskItem> Tasks, long TotalCount)> GetByProjectAsync(
@@ -57,7 +57,7 @@ public sealed class MongoTaskRepository : ITaskRepository
             .Limit(take)
             .ToListAsync(cancellationToken);
 
-        await Task.WhenAll(countTask, tasksTask).ConfigureAwait(false);
+        await Task.WhenAll(countTask, tasksTask);
 
         return (tasksTask.Result, countTask.Result);
     }
@@ -89,14 +89,14 @@ public sealed class MongoTaskRepository : ITaskRepository
             .Limit(take)
             .ToListAsync(cancellationToken);
 
-        await Task.WhenAll(countTask, tasksTask).ConfigureAwait(false);
+        await Task.WhenAll(countTask, tasksTask);
 
         return (tasksTask.Result, countTask.Result);
     }
 
     public async Task CreateAsync(TaskItem task, CancellationToken cancellationToken = default)
     {
-        await _tasks.InsertOneAsync(task, cancellationToken: cancellationToken).ConfigureAwait(false);
+        await _tasks.InsertOneAsync(task, cancellationToken: cancellationToken);
     }
     public async Task<bool> UpdateAsync(TaskItem task, CancellationToken cancellationToken = default)
     {
@@ -104,8 +104,7 @@ public sealed class MongoTaskRepository : ITaskRepository
             Builders<TaskItem>.Filter.Eq(t => t.Id, task.Id),
             Builders<TaskItem>.Filter.Eq(t => t.IsDeleted, false));
 
-        var result = await _tasks.ReplaceOneAsync(filter, task, cancellationToken: cancellationToken)
-            .ConfigureAwait(false);
+        var result = await _tasks.ReplaceOneAsync(filter, task, cancellationToken: cancellationToken);
         return result.ModifiedCount > 0;
     }
 
@@ -122,8 +121,8 @@ public sealed class MongoTaskRepository : ITaskRepository
 
         var update = Builders<TaskItem>.Update.Set(t => t.IsDeleted, true);
 
-        var result = await _tasks.UpdateOneAsync(filter, update, cancellationToken: cancellationToken)
-            .ConfigureAwait(false);
+        var result = await _tasks.UpdateOneAsync(filter, update, cancellationToken: cancellationToken);
+
         return result.ModifiedCount > 0;
     }
 
@@ -144,7 +143,7 @@ public sealed class MongoTaskRepository : ITaskRepository
             .Match(filter)
             .Group(t => t.Status, g => new { Status = g.Key, Count = g.Count() });
 
-        var grouped = await pipeline.ToListAsync(cancellationToken).ConfigureAwait(false);
+        var grouped = await pipeline.ToListAsync(cancellationToken);
         return grouped.ToDictionary(x => x.Status, x => x.Count);
     }
 }

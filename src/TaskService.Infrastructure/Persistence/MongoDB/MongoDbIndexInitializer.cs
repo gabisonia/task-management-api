@@ -8,41 +8,34 @@ using TaskService.Domain.TaskItemManagement;
 
 namespace TaskService.Infrastructure.Persistence.MongoDB;
 
-public sealed class MongoDbIndexInitializer : IHostedService
+public sealed class MongoDbIndexInitializer(
+    MongoDbContext context,
+    IOptions<MongoDbOptions> options,
+    ILogger<MongoDbIndexInitializer> logger)
+    : IHostedService
 {
-    private readonly MongoDbContext _context;
-    private readonly MongoDbOptions _options;
-    private readonly ILogger<MongoDbIndexInitializer> _logger;
-    public MongoDbIndexInitializer(
-        MongoDbContext context,
-        IOptions<MongoDbOptions> options,
-        ILogger<MongoDbIndexInitializer> logger)
-    {
-        _context = context;
-        _options = options.Value;
-        _logger = logger;
-    }
+    private readonly MongoDbOptions _options = options.Value;
 
     public async Task StartAsync(CancellationToken cancellationToken)
     {
         if (!_options.CreateIndexesOnStartup)
         {
-            _logger.LogInformation("Index creation on startup is disabled");
+            logger.LogInformation("Index creation on startup is disabled");
             return;
         }
 
-        _logger.LogInformation("Creating MongoDB indexes...");
+        logger.LogInformation("Creating MongoDB indexes...");
 
         try
         {
-            await CreateProjectIndexesAsync(cancellationToken).ConfigureAwait(false);
-            await CreateTaskIndexesAsync(cancellationToken).ConfigureAwait(false);
+            await CreateProjectIndexesAsync(cancellationToken);
+            await CreateTaskIndexesAsync(cancellationToken);
 
-            _logger.LogInformation("MongoDB indexes created successfully");
+            logger.LogInformation("MongoDB indexes created successfully");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to create MongoDB indexes");
+            logger.LogError(ex, "Failed to create MongoDB indexes");
             throw;
         }
     }
@@ -54,7 +47,7 @@ public sealed class MongoDbIndexInitializer : IHostedService
 
     private async Task CreateProjectIndexesAsync(CancellationToken cancellationToken)
     {
-        var projectsCollection = _context.Projects;
+        var projectsCollection = context.Projects;
 
         // Index: OwnerId + IsDeleted + CreatedAt (for list queries)
         var ownerIndexKeys = Builders<Project>.IndexKeys
@@ -82,15 +75,15 @@ public sealed class MongoDbIndexInitializer : IHostedService
             });
 
         await projectsCollection.Indexes.CreateManyAsync(
-            new[] { ownerIndexModel, uniqueNameIndexModel },
-            cancellationToken).ConfigureAwait(false);
+            [ownerIndexModel, uniqueNameIndexModel],
+            cancellationToken);
 
-        _logger.LogInformation("Project indexes created");
+        logger.LogInformation("Project indexes created");
     }
 
     private async Task CreateTaskIndexesAsync(CancellationToken cancellationToken)
     {
-        var tasksCollection = _context.Tasks;
+        var tasksCollection = context.Tasks;
 
         // Index: ProjectId + IsDeleted + CreatedAt (for task list by project)
         var projectIndexKeys = Builders<TaskItem>.IndexKeys
@@ -112,9 +105,9 @@ public sealed class MongoDbIndexInitializer : IHostedService
             new CreateIndexOptions { Name = "idx_assignee_status" });
 
         await tasksCollection.Indexes.CreateManyAsync(
-            new[] { projectIndexModel, assigneeIndexModel },
-            cancellationToken).ConfigureAwait(false);
+            [projectIndexModel, assigneeIndexModel],
+            cancellationToken);
 
-        _logger.LogInformation("Task indexes created");
+        logger.LogInformation("Task indexes created");
     }
 }

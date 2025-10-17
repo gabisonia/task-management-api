@@ -18,7 +18,7 @@ public sealed class ValidationBehavior<TRequest, TResponse>(IEnumerable<IValidat
     {
         if (!validators.Any())
         {
-            return await next().ConfigureAwait(false);
+            return await next(cancellationToken);
         }
 
         var context = new ValidationContext<TRequest>(request);
@@ -36,8 +36,6 @@ public sealed class ValidationBehavior<TRequest, TResponse>(IEnumerable<IValidat
             string errorMessage = string.Join("; ", failures.Select(f => f.ErrorMessage));
             var error = new Error("VALIDATION_FAILED", errorMessage);
 
-            // Create a failed Result<T> response
-            // This assumes TResponse is Result or Result<T>
             Type resultType = typeof(TResponse);
             if (resultType.IsGenericType && resultType.GetGenericTypeDefinition() == typeof(Result<>))
             {
@@ -48,10 +46,9 @@ public sealed class ValidationBehavior<TRequest, TResponse>(IEnumerable<IValidat
                 }
             }
 
-            // For non-generic Result
-            return (TResponse)(object)Result.Failure(error);
+            return (TResponse)Result.Failure(error);
         }
 
-        return await next().ConfigureAwait(false);
+        return await next(cancellationToken);
     }
 }

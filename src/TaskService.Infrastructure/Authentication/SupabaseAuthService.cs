@@ -53,7 +53,7 @@ public sealed class SupabaseAuthService : ISupabaseAuthService
                 signupEndpoint,
                 payload,
                 _jsonOptions,
-                cancellationToken).ConfigureAwait(false);
+                cancellationToken);
 
             if (!response.IsSuccessStatusCode)
             {
@@ -64,7 +64,7 @@ public sealed class SupabaseAuthService : ISupabaseAuthService
             }
 
             var supabaseResponse = await response.Content
-                .ReadFromJsonAsync<SupabaseAuthResponse>(_jsonOptions, cancellationToken).ConfigureAwait(false);
+                .ReadFromJsonAsync<SupabaseAuthResponse>(_jsonOptions, cancellationToken);
 
             if (supabaseResponse?.Session == null)
             {
@@ -100,7 +100,7 @@ public sealed class SupabaseAuthService : ISupabaseAuthService
                 "/auth/v1/token?grant_type=password",
                 payload,
                 _jsonOptions,
-                cancellationToken).ConfigureAwait(false);
+                cancellationToken);
 
             if (!response.IsSuccessStatusCode)
             {
@@ -111,7 +111,7 @@ public sealed class SupabaseAuthService : ISupabaseAuthService
             }
 
             var supabaseResponse = await response.Content
-                .ReadFromJsonAsync<SupabaseAuthResponse>(_jsonOptions, cancellationToken).ConfigureAwait(false);
+                .ReadFromJsonAsync<SupabaseAuthResponse>(_jsonOptions, cancellationToken);
 
             if (supabaseResponse == null)
             {
@@ -150,8 +150,8 @@ public sealed class SupabaseAuthService : ISupabaseAuthService
                 DisplayName = supabaseResponse.User?.UserMetadata?.DisplayName,
                 EmailVerified = supabaseResponse.User?.EmailConfirmedAt != null,
                 Roles = supabaseResponse.User?.Role != null
-                    ? new[] { supabaseResponse.User.Role }
-                    : Array.Empty<string>()
+                    ? [supabaseResponse.User.Role]
+                    : []
             }
         };
     }

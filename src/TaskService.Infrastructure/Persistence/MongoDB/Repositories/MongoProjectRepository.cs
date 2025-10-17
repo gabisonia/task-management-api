@@ -22,7 +22,7 @@ public sealed class MongoProjectRepository : IProjectRepository
             Builders<Project>.Filter.Eq(p => p.Id, objectId),
             Builders<Project>.Filter.Eq(p => p.IsDeleted, false));
 
-        return await _projects.Find(filter).FirstOrDefaultAsync(cancellationToken).ConfigureAwait(false);
+        return await _projects.Find(filter).FirstOrDefaultAsync(cancellationToken);
     }
 
     public async Task<(IReadOnlyList<Project> Projects, long TotalCount)> GetByOwnerAsync(
@@ -45,14 +45,14 @@ public sealed class MongoProjectRepository : IProjectRepository
             .Limit(take)
             .ToListAsync(cancellationToken);
 
-        await Task.WhenAll(countTask, projectsTask).ConfigureAwait(false);
+        await Task.WhenAll(countTask, projectsTask);
 
         return (projectsTask.Result, countTask.Result);
     }
 
     public async Task CreateAsync(Project project, CancellationToken cancellationToken = default)
     {
-        await _projects.InsertOneAsync(project, cancellationToken: cancellationToken).ConfigureAwait(false);
+        await _projects.InsertOneAsync(project, cancellationToken: cancellationToken);
     }
     public async Task<bool> UpdateAsync(Project project, CancellationToken cancellationToken = default)
     {
@@ -60,8 +60,8 @@ public sealed class MongoProjectRepository : IProjectRepository
             Builders<Project>.Filter.Eq(p => p.Id, project.Id),
             Builders<Project>.Filter.Eq(p => p.IsDeleted, false));
 
-        var result = await _projects.ReplaceOneAsync(filter, project, cancellationToken: cancellationToken)
-            .ConfigureAwait(false);
+        var result = await _projects.ReplaceOneAsync(filter, project, cancellationToken: cancellationToken);
+
         return result.ModifiedCount > 0;
     }
 
@@ -78,8 +78,7 @@ public sealed class MongoProjectRepository : IProjectRepository
 
         var update = Builders<Project>.Update.Set(p => p.IsDeleted, true);
 
-        var result = await _projects.UpdateOneAsync(filter, update, cancellationToken: cancellationToken)
-            .ConfigureAwait(false);
+        var result = await _projects.UpdateOneAsync(filter, update, cancellationToken: cancellationToken);
         return result.ModifiedCount > 0;
     }
 
@@ -100,8 +99,7 @@ public sealed class MongoProjectRepository : IProjectRepository
             filter = filterBuilder.And(filter, filterBuilder.Ne(p => p.Id, objectId));
         }
 
-        var count = await _projects.CountDocumentsAsync(filter, cancellationToken: cancellationToken)
-            .ConfigureAwait(false);
+        var count = await _projects.CountDocumentsAsync(filter, cancellationToken: cancellationToken);
         return count > 0;
     }
 }

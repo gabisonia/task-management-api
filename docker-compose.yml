@@ -1,0 +1,108 @@
+version: "3.9"
+
+name: taskservice
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: src/TaskService.Api/Dockerfile
+    image: taskservice-api:local
+    depends_on:
+      - mongo
+      - redis
+      - supabase-db
+      - supabase-auth
+      - auth-proxy
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - MongoDB__ConnectionString=mongodb://mongo:27017
+      - Redis__ConnectionString=redis:6379
+      - Supabase__Url=http://auth-proxy:9999
+      - Supabase__JwksUrl=http://auth-proxy:9999/auth/v1/.well-known/jwks.json
+      - Supabase__Issuer=http://auth-proxy:9999
+      - Supabase__Audience=authenticated
+      - Supabase__ServiceKey=super-secret-jwt
+      - Supabase__SkipEmailConfirmation=true
+    ports:
+      - "5214:8080" # host:container
+    networks:
+      - appnet
+
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    volumes:
+      - mongo_data:/data/db
+    ports:
+      - "27017:27017"
+    networks:
+      - appnet
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--save", "20", "1", "--loglevel", "warning"]
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - appnet
+
+  supabase-db:
+    image: postgres:14-alpine
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=postgres
+    volumes:
+      - supabase_pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - appnet
+
+  supabase-auth:
+    image: supabase/gotrue:v2.151.2
+    restart: unless-stopped
+    depends_on:
+      - supabase-db
+    environment:
+      - GOTRUE_SITE_URL=http://auth-proxy:9999
+      - GOTRUE_API_HOST=0.0.0.0
+      - PORT=9999
+      - GOTRUE_DB_DRIVER=postgres
+      - GOTRUE_DB_DATABASE_URL=postgres://postgres:postgres@supabase-db:5432/postgres?sslmode=disable
+      - GOTRUE_JWT_DEFAULT_GROUP_NAME=authenticated
+      - GOTRUE_JWT_SECRET=super-secret-jwt
+      - GOTRUE_DISABLE_SIGNUP=false
+      - GOTRUE_EXTERNAL_EMAIL_ENABLED=true
+      - GOTRUE_MAILER_AUTOCONFIRM=true
+      - API_EXTERNAL_URL=http://auth-proxy:9999
+    ports:
+      - "9998:9999" # optional external access to raw GoTrue
+    networks:
+      - appnet
+
+  auth-proxy:
+    build:
+      context: docker/auth-proxy
+    image: taskservice-auth-proxy:local
+    depends_on:
+      - supabase-auth
+    ports:
+      - "9999:9999"
+    networks:
+      - appnet
+
+volumes:
+  mongo_data:
+  redis_data:
+  supabase_pgdata:
+
+networks:
+  appnet:
+    driver: bridge
+

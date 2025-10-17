@@ -6,34 +6,22 @@ using TaskService.Application.Abstractions;
 
 namespace TaskService.Infrastructure.Persistence.Redis;
 
-public sealed class RedisCacheService : ICacheService
+public sealed class RedisCacheService(
+    IConnectionMultiplexer redis,
+    IOptions<RedisOptions> options,
+    ILogger<RedisCacheService> logger)
+    : ICacheService
 {
-    private readonly IConnectionMultiplexer _redis;
-    private readonly RedisOptions _options;
-    private readonly ILogger<RedisCacheService> _logger;
-    private readonly JsonSerializerOptions _jsonOptions;
-
-    public RedisCacheService(
-        IConnectionMultiplexer redis,
-        IOptions<RedisOptions> options,
-        ILogger<RedisCacheService> logger)
-    {
-        _redis = redis;
-        _options = options.Value;
-        _logger = logger;
-        _jsonOptions = new JsonSerializerOptions
-        {
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-        };
-    }
+    private readonly RedisOptions _options = options.Value;
+    private readonly JsonSerializerOptions _jsonOptions = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
 
     public async Task<T?> GetAsync<T>(string key, CancellationToken cancellationToken = default)
         where T : class
     {
         try
         {
-            var db = _redis.GetDatabase();
-            var value = await db.StringGetAsync(key).ConfigureAwait(false);
+            var db = redis.GetDatabase();
+            var value = await db.StringGetAsync(key);
 
             if (value.IsNullOrEmpty)
             {
@@ -44,25 +32,26 @@ public sealed class RedisCacheService : ICacheService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error getting cache key {Key}", key);
+            logger.LogError(ex, "Error getting cache key {Key}", key);
             return null;
         }
     }
 
-    public async Task SetAsync<T>(string key, T value, TimeSpan? expiration = null, CancellationToken cancellationToken = default)
+    public async Task SetAsync<T>(string key, T value, TimeSpan? expiration = null,
+        CancellationToken cancellationToken = default)
         where T : class
     {
         try
         {
-            var db = _redis.GetDatabase();
+            var db = redis.GetDatabase();
             var json = JsonSerializer.Serialize(value, _jsonOptions);
             var ttl = expiration ?? TimeSpan.FromMinutes(_options.DefaultExpirationMinutes);
 
-            await db.StringSetAsync(key, json, ttl).ConfigureAwait(false);
+            await db.StringSetAsync(key, json, ttl);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error setting cache key {Key}", key);
+            logger.LogError(ex, "Error setting cache key {Key}", key);
         }
     }
 
@@ -70,12 +59,12 @@ public sealed class RedisCacheService : ICacheService
     {
         try
         {
-            var db = _redis.GetDatabase();
-            await db.KeyDeleteAsync(key).ConfigureAwait(false);
+            var db = redis.GetDatabase();
+            await db.KeyDeleteAsync(key);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error removing cache key {Key}", key);
+            logger.LogError(ex, "Error removing cache key {Key}", key);
         }
     }
 
@@ -83,20 +72,20 @@ public sealed class RedisCacheService : ICacheService
     {
         try
         {
-            var endpoints = _redis.GetEndPoints();
-            var server = _redis.GetServer(endpoints[0]);
-            var db = _redis.GetDatabase();
+            var endpoints = redis.GetEndPoints();
+            var server = redis.GetServer(endpoints[0]);
+            var db = redis.GetDatabase();
 
             var keys = server.Keys(pattern: pattern).ToArray();
 
             if (keys.Length > 0)
             {
-                await db.KeyDeleteAsync(keys).ConfigureAwait(false);
+                await db.KeyDeleteAsync(keys);
             }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error removing cache keys by pattern {Pattern}", pattern);
+            logger.LogError(ex, "Error removing cache keys by pattern {Pattern}", pattern);
         }
     }
 }
