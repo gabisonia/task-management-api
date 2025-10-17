@@ -16,8 +16,8 @@ COPY src/TaskService.Infrastructure/TaskService.Infrastructure.csproj src/TaskSe
 COPY src/TaskService.Domain/TaskService.Domain.csproj src/TaskService.Domain/
 COPY src/TaskService.Shared/TaskService.Shared.csproj src/TaskService.Shared/
 
-# Restore
-RUN dotnet restore TaskService.sln
+# Restore only the API project (tests not included in image)
+RUN dotnet restore src/TaskService.Api/TaskService.Api.csproj
 
 # Copy the rest of the source
 COPY src/ src/
@@ -35,4 +35,3 @@ COPY --from=build /app/publish .
 
 EXPOSE 8080
 ENTRYPOINT ["dotnet", "TaskService.Api.dll"]
-

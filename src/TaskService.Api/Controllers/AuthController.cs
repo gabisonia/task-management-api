@@ -52,7 +52,9 @@ public sealed class AuthController(ISupabaseAuthService authService) : Controlle
     [ProducesResponseType(typeof(ProblemDetailsResponse), StatusCodes.Status401Unauthorized)]
     public IActionResult GetCurrentUser()
     {
-        var userId = User.FindFirst("sub")?.Value ?? User.FindFirst("user_id")?.Value;
+        var userId = User.FindFirst("sub")?.Value
+                     ?? User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+                     ?? User.FindFirst("user_id")?.Value;
         var email = User.FindFirst("email")?.Value;
         var displayName = User.FindFirst("name")?.Value ?? User.FindFirst("display_name")?.Value;
         var emailVerified = User.FindFirst("email_verified")?.Value == "true";

@@ -63,64 +63,48 @@ public static class DependencyInjection
 
                 bool usingInsecureIssuer =
                     supabaseOptions.Issuer.StartsWith("http://", StringComparison.OrdinalIgnoreCase);
-                if (usingInsecureIssuer)
-                {
-                    options.RequireHttpsMetadata = false;
-                }
-                else
-                {
-                    options.Authority = supabaseOptions.Issuer;
-                }
+                options.RequireHttpsMetadata = !usingInsecureIssuer;
+                // Preserve JWT claim names (e.g., keep "sub" instead of mapping to NameIdentifier)
+                options.MapInboundClaims = false;
 
-                options.TokenValidationParameters = new Microsoft.IdentityModel.Tokens.TokenValidationParameters
+                var tvp = new Microsoft.IdentityModel.Tokens.TokenValidationParameters
                 {
                     ValidateIssuer = true,
                     ValidIssuer = supabaseOptions.Issuer,
                     ValidateAudience = true,
                     ValidAudience = supabaseOptions.Audience,
                     ValidateLifetime = true,
-                    ValidateIssuerSigningKey = true
+                    ValidateIssuerSigningKey = true,
+                    NameClaimType = System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub,
+                    RoleClaimType = "role"
                 };
 
-                if (!usingInsecureIssuer)
+                // Prefer HS256 with project JWT secret when provided (Supabase default)
+                if (!string.IsNullOrWhiteSpace(supabaseOptions.JwtSecret))
                 {
-                    options.TokenValidationParameters.IssuerSigningKeyResolver =
-                        (token, securityToken, kid, parameters) =>
-                        {
-                            using var http = new HttpClient();
-                            var jwksJson = http.GetStringAsync(supabaseOptions.JwksUrl).GetAwaiter().GetResult();
-                            var jwks = new Microsoft.IdentityModel.Tokens.JsonWebKeySet(jwksJson);
-
-                            var keys = jwks.Keys
-                                .Where(k => string.IsNullOrEmpty(kid) || k.Kid == kid)
-                                .Select(JsonWebKeyToSecurityKey)
-                                .Where(static key => key is not null)
-                                .Cast<Microsoft.IdentityModel.Tokens.SecurityKey>()
-                                .ToList();
-
-                            if (keys.Count == 0 && !string.IsNullOrWhiteSpace(supabaseOptions.ServiceKey) &&
-                                TryCreateSymmetricKeyFromSecret(supabaseOptions.ServiceKey, kid, out var fallbackKey))
-                            {
-                                keys.Add(fallbackKey);
-                            }
-
-                            return keys;
-                        };
+                    // Supabase exposes the JWT secret as a string; use it as raw bytes for HMAC
+                    var keyBytes = Encoding.UTF8.GetBytes(supabaseOptions.JwtSecret);
+                    tvp.IssuerSigningKey = new Microsoft.IdentityModel.Tokens.SymmetricSecurityKey(keyBytes);
+                    tvp.ValidAlgorithms = new[] { Microsoft.IdentityModel.Tokens.SecurityAlgorithms.HmacSha256 };
                 }
-                else if (!string.IsNullOrWhiteSpace(supabaseOptions.ServiceKey))
+                else if (!string.IsNullOrWhiteSpace(supabaseOptions.JwksUrl))
                 {
-                    Console.WriteLine("[Auth] Using local Supabase stub signing key");
-                    options.TokenValidationParameters.IssuerSigningKeyResolver =
-                        (token, securityToken, kid, parameters) =>
-                        {
-                            if (TryCreateSymmetricKeyFromSecret(supabaseOptions.ServiceKey, kid, out var key))
-                            {
-                                return new[] { key };
-                            }
-
-                            return Array.Empty<Microsoft.IdentityModel.Tokens.SecurityKey>();
-                        };
+                    // Optional: support RS256 via JWKS if configured
+                    tvp.IssuerSigningKeyResolver = (token, securityToken, kid, parameters) =>
+                    {
+                        using var http = new HttpClient();
+                        var jwksJson = http.GetStringAsync(supabaseOptions.JwksUrl).GetAwaiter().GetResult();
+                        var jwks = new Microsoft.IdentityModel.Tokens.JsonWebKeySet(jwksJson);
+                        return jwks.Keys
+                            .Where(k => string.IsNullOrEmpty(kid) || k.Kid == kid)
+                            .Select(JsonWebKeyToSecurityKey)
+                            .Where(static key => key is not null)
+                            .Cast<Microsoft.IdentityModel.Tokens.SecurityKey>()
+                            .ToList();
+                    };
                 }
+
+                options.TokenValidationParameters = tvp;
 
                 options.Events = new JwtBearerEvents
                 {

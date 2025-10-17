@@ -1,5 +1,6 @@
 using System.Net.Http.Json;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using TaskService.Application.Abstractions;
@@ -23,10 +24,24 @@ public sealed class SupabaseAuthService : ISupabaseAuthService
         _httpClient = httpClient;
         _options = options.Value;
         _logger = logger;
-        _jsonOptions = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+        _jsonOptions = new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            PropertyNameCaseInsensitive = true
+        };
 
         _httpClient.BaseAddress = new Uri(_options.Url);
-        _httpClient.DefaultRequestHeaders.Add("apikey", _options.ServiceKey);
+        var apiKey = string.IsNullOrWhiteSpace(_options.ApiKey) ? _options.ServiceKey : _options.ApiKey;
+        if (!string.IsNullOrWhiteSpace(apiKey))
+        {
+            _httpClient.DefaultRequestHeaders.Add("apikey", apiKey);
+            // Some endpoints expect Authorization: Bearer <anon_key>
+            if (!_httpClient.DefaultRequestHeaders.Contains("Authorization"))
+            {
+                _httpClient.DefaultRequestHeaders.Authorization =
+                    new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", apiKey);
+            }
+        }
         if (_options.SkipEmailConfirmation && !_httpClient.DefaultRequestHeaders.Contains("Prefer"))
         {
             _httpClient.DefaultRequestHeaders.Add("Prefer", "return=representation");
@@ -66,14 +81,25 @@ public sealed class SupabaseAuthService : ISupabaseAuthService
             var supabaseResponse = await response.Content
                 .ReadFromJsonAsync<SupabaseAuthResponse>(_jsonOptions, cancellationToken);
 
-            if (supabaseResponse?.Session == null)
+            // Ignore session return; clients will log in after registration to get a token.
+            var userEmail = supabaseResponse?.User?.Email ?? request.Email;
+            var displayName = supabaseResponse?.User?.UserMetadata?.DisplayName ?? request.DisplayName;
+            var resultPayload = new AuthResponse
             {
-                return Result<AuthResponse>.Failure(
-                    new Error("AUTH_REGISTRATION_FAILED", "Registration succeeded but no session returned"));
-            }
+                AccessToken = string.Empty,
+                RefreshToken = null,
+                ExpiresAt = DateTime.UtcNow,
+                User = new UserInfoResponse
+                {
+                    Id = supabaseResponse?.User?.Id ?? string.Empty,
+                    Email = userEmail,
+                    DisplayName = displayName,
+                    EmailVerified = supabaseResponse?.User?.EmailConfirmedAt != null,
+                    Roles = supabaseResponse?.User?.Role != null ? new[] { supabaseResponse.User.Role } : Array.Empty<string>()
+                }
+            };
 
-            var authResponse = MapToAuthResponse(supabaseResponse);
-            return Result<AuthResponse>.Success(authResponse);
+            return Result<AuthResponse>.Success(resultPayload);
         }
         catch (HttpRequestException ex)
         {
@@ -107,7 +133,7 @@ public sealed class SupabaseAuthService : ISupabaseAuthService
                 _logger.LogWarning("Supabase login failed: {StatusCode}", response.StatusCode);
 
                 return Result<AuthResponse>.Failure(
-                    new Error("AUTH_LOGIN_FAILED", "Invalid email or password"));
+                    new Error("AUTH_UNAUTHORIZED", "Invalid email or password"));
             }
 
             var supabaseResponse = await response.Content
@@ -138,11 +164,25 @@ public sealed class SupabaseAuthService : ISupabaseAuthService
 
     private static AuthResponse MapToAuthResponse(SupabaseAuthResponse supabaseResponse)
     {
+        // Supabase returns expires_in as a relative duration (seconds)
+        var expiresAt = DateTime.UtcNow;
+        try
+        {
+            if (supabaseResponse.ExpiresIn > 0)
+            {
+                expiresAt = DateTime.UtcNow.AddSeconds(supabaseResponse.ExpiresIn);
+            }
+        }
+        catch
+        {
+            // ignore and keep default
+        }
+
         return new AuthResponse
         {
             AccessToken = supabaseResponse.AccessToken ?? string.Empty,
             RefreshToken = supabaseResponse.RefreshToken,
-            ExpiresAt = DateTimeOffset.FromUnixTimeSeconds(supabaseResponse.ExpiresIn).UtcDateTime,
+            ExpiresAt = expiresAt,
             User = new UserInfoResponse
             {
                 Id = supabaseResponse.User?.Id ?? string.Empty,
@@ -150,40 +190,66 @@ public sealed class SupabaseAuthService : ISupabaseAuthService
                 DisplayName = supabaseResponse.User?.UserMetadata?.DisplayName,
                 EmailVerified = supabaseResponse.User?.EmailConfirmedAt != null,
                 Roles = supabaseResponse.User?.Role != null
-                    ? [supabaseResponse.User.Role]
-                    : []
+                    ? new[] { supabaseResponse.User.Role }
+                    : Array.Empty<string>()
             }
         };
     }
 
     private sealed class SupabaseAuthResponse
     {
+        [JsonPropertyName("access_token")]
         public string? AccessToken { get; set; }
+
+        [JsonPropertyName("refresh_token")]
         public string? RefreshToken { get; set; }
+
+        [JsonPropertyName("expires_in")]
         public long ExpiresIn { get; set; }
+
+        [JsonPropertyName("token_type")]
         public string? TokenType { get; set; }
+
+        [JsonPropertyName("session")]
         public SupabaseSession? Session { get; set; }
+
+        [JsonPropertyName("user")]
         public SupabaseUser? User { get; set; }
     }
 
     private sealed class SupabaseSession
     {
+        [JsonPropertyName("access_token")]
         public string? AccessToken { get; set; }
+
+        [JsonPropertyName("refresh_token")]
         public string? RefreshToken { get; set; }
+
+        [JsonPropertyName("expires_in")]
         public long ExpiresIn { get; set; }
     }
 
     private sealed class SupabaseUser
     {
+        [JsonPropertyName("id")]
         public string? Id { get; set; }
+
+        [JsonPropertyName("email")]
         public string? Email { get; set; }
+
+        [JsonPropertyName("role")]
         public string? Role { get; set; }
+
+        [JsonPropertyName("email_confirmed_at")]
         public DateTime? EmailConfirmedAt { get; set; }
+
+        [JsonPropertyName("user_metadata")]
         public SupabaseUserMetadata? UserMetadata { get; set; }
     }
 
     private sealed class SupabaseUserMetadata
     {
+        [JsonPropertyName("display_name")]
         public string? DisplayName { get; set; }
     }
 }
