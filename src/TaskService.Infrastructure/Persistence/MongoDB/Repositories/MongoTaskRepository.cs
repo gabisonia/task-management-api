@@ -4,13 +4,10 @@ using TaskService.Domain.TaskItemManagement;
 
 namespace TaskService.Infrastructure.Persistence.MongoDB.Repositories;
 
-public sealed class MongoTaskRepository : ITaskRepository
+public sealed class MongoTaskRepository(MongoDbContext context) : ITaskRepository
 {
-    private readonly IMongoCollection<TaskItem> _tasks;
-    public MongoTaskRepository(MongoDbContext context)
-    {
-        _tasks = context.Tasks;
-    }
+    private readonly IMongoCollection<TaskItem> _tasks = context.Tasks;
+
     public async Task<TaskItem?> GetByIdAsync(string id, CancellationToken cancellationToken = default)
     {
         if (!ObjectId.TryParse(id, out var objectId))
@@ -98,6 +95,7 @@ public sealed class MongoTaskRepository : ITaskRepository
     {
         await _tasks.InsertOneAsync(task, cancellationToken: cancellationToken);
     }
+
     public async Task<bool> UpdateAsync(TaskItem task, CancellationToken cancellationToken = default)
     {
         var filter = Builders<TaskItem>.Filter.And(

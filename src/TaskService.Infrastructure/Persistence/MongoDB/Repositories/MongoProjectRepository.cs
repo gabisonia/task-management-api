@@ -4,13 +4,10 @@ using TaskService.Domain.ProjectManagement;
 
 namespace TaskService.Infrastructure.Persistence.MongoDB.Repositories;
 
-public sealed class MongoProjectRepository : IProjectRepository
+public sealed class MongoProjectRepository(MongoDbContext context) : IProjectRepository
 {
-    private readonly IMongoCollection<Project> _projects;
-    public MongoProjectRepository(MongoDbContext context)
-    {
-        _projects = context.Projects;
-    }
+    private readonly IMongoCollection<Project> _projects = context.Projects;
+
     public async Task<Project?> GetByIdAsync(string id, CancellationToken cancellationToken = default)
     {
         if (!ObjectId.TryParse(id, out var objectId))
