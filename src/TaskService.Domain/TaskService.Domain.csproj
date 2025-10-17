@@ -5,7 +5,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="MongoDB.Bson" Version="3.5.0" />
+    <PackageReference Include="MongoDB.Bson" />
   </ItemGroup>
 
   <!-- Common properties are now in Directory.Build.props -->
