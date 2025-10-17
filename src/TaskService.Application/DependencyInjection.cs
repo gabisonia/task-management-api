@@ -19,8 +19,6 @@ public static class DependencyInjection
 
         // Register validators from Application assembly
         services.AddValidatorsFromAssembly(assembly, includeInternalTypes: true);
-        
-        // DTO validators are part of this assembly (Application)
 
         // Pipeline behaviors
         services.AddTransient(typeof(IPipelineBehavior<,>), typeof(LoggingBehavior<,>));
