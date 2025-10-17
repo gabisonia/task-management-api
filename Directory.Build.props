@@ -1,0 +1,30 @@
+<Project>
+  <!-- 
+    Solution-wide properties applied to all projects.
+    Individual projects can override these settings if needed.
+  -->
+  <PropertyGroup>
+    <!-- Target Framework -->
+    <TargetFramework>net8.0</TargetFramework>
+    
+    <!-- Language Features -->
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>12</LangVersion>
+    
+    <!-- Documentation -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    
+    <!-- Code Quality -->
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    
+    <!-- Suppress specific warnings -->
+    <NoWarn>$(NoWarn);1591</NoWarn> <!-- Missing XML comment for publicly visible type -->
+    <NoWarn>$(NoWarn);CA1716</NoWarn> <!-- Reserved keyword conflicts (Shared, Error are acceptable) -->
+    <NoWarn>$(NoWarn);CA1000</NoWarn> <!-- Static members on generic types (Result pattern) -->
+    <NoWarn>$(NoWarn);CA1848</NoWarn> <!-- LoggerMessage delegates (defer optimization) -->
+  </PropertyGroup>
+</Project>

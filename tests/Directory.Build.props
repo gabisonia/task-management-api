@@ -1,0 +1,12 @@
+<Project>
+  <!-- Import solution-wide properties -->
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
+  
+  <!-- Test-specific analyzer rules -->
+  <PropertyGroup>
+    <!-- Suppress analyzer rules that conflict with standard test naming conventions -->
+    <NoWarn>$(NoWarn);CA1707</NoWarn> <!-- Test methods use underscores (MethodName_Scenario_ExpectedResult) -->
+    <NoWarn>$(NoWarn);CA1062</NoWarn> <!-- Validate public method arguments (not needed in tests) -->
+    <NoWarn>$(NoWarn);CA2007</NoWarn> <!-- ConfigureAwait in tests (not required) -->
+  </PropertyGroup>
+</Project>

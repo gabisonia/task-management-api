@@ -1,0 +1,92 @@
+version: '3.8'
+
+services:
+  taskservice-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: taskservice-api
+    ports:
+      - "5080:8080"
+      - "5081:8081"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
+      - MongoDB__ConnectionString=mongodb://mongodb:27017
+      - MongoDB__DatabaseName=taskservice
+      - MongoDB__CreateIndexesOnStartup=true
+      - Redis__ConnectionString=redis:6379
+      - Redis__DefaultExpirationMinutes=60
+      - Supabase__Url=http://supabase-auth:9999
+      - Supabase__JwksUrl=http://supabase-auth:9999/.well-known/jwks.json
+      - Supabase__Issuer=http://supabase-auth:9999
+      - Supabase__Audience=authenticated
+      - Supabase__ServiceKey=super-secret-jwt
+      - Supabase__SkipEmailConfirmation=true
+    depends_on:
+      - mongodb
+      - redis
+      - supabase-auth
+    networks:
+      - taskservice-network
+    restart: unless-stopped
+
+  mongodb:
+    image: mongo:7.0
+    container_name: taskservice-mongodb
+    ports:
+      - "27017:27017"
+    environment:
+      - MONGO_INITDB_DATABASE=taskservice
+    volumes:
+      - mongodb-data:/data/db
+    networks:
+      - taskservice-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: taskservice-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - taskservice-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  supabase-auth:
+    build:
+      context: supabase-stub
+      dockerfile: Dockerfile
+    container_name: taskservice-supabase-auth
+    environment:
+      SUPABASE_STUB_PORT: "9999"
+      SUPABASE_STUB_JWT_SECRET: super-secret-jwt
+      SUPABASE_STUB_JWT_ISSUER: http://supabase-auth:9999
+      SUPABASE_STUB_JWT_AUDIENCE: authenticated
+    ports:
+      - "9999:9999"
+    networks:
+      - taskservice-network
+    restart: unless-stopped
+
+networks:
+  taskservice-network:
+    driver: bridge
+
+volumes:
+  mongodb-data:
+    driver: local
+  redis-data:
+    driver: local

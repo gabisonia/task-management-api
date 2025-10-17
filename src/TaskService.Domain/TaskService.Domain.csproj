@@ -1,0 +1,13 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\TaskService.Shared\TaskService.Shared.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MongoDB.Bson" Version="3.5.0" />
+  </ItemGroup>
+
+  <!-- Common properties are now in Directory.Build.props -->
+
+</Project>
