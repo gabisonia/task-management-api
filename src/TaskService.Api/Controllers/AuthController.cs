@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Text.Json;
 using TaskService.Application.Abstractions;
 using TaskService.Application.Dtos.Auth;
 using TaskService.Shared;
@@ -57,7 +58,47 @@ public sealed class AuthController(ISupabaseAuthService authService) : Controlle
                      ?? User.FindFirst("user_id")?.Value;
         var email = User.FindFirst("email")?.Value;
         var displayName = User.FindFirst("name")?.Value ?? User.FindFirst("display_name")?.Value;
-        var emailVerified = User.FindFirst("email_verified")?.Value == "true";
+
+        // Try to extract from user_metadata claim (JSON) if not directly present
+        var userMetadataJson = User.FindFirst("user_metadata")?.Value;
+        if (string.IsNullOrEmpty(displayName) && !string.IsNullOrEmpty(userMetadataJson))
+        {
+            try
+            {
+                using var doc = JsonDocument.Parse(userMetadataJson);
+                var root = doc.RootElement;
+                if (root.TryGetProperty("display_name", out var dnProp) && dnProp.ValueKind == JsonValueKind.String)
+                {
+                    displayName = dnProp.GetString();
+                }
+                else if (root.TryGetProperty("full_name", out var fnProp) && fnProp.ValueKind == JsonValueKind.String)
+                {
+                    displayName = fnProp.GetString();
+                }
+                else if (root.TryGetProperty("name", out var nProp) && nProp.ValueKind == JsonValueKind.String)
+                {
+                    displayName = nProp.GetString();
+                }
+            }
+            catch
+            {
+                // ignore invalid json
+            }
+        }
+
+        bool emailVerified = User.FindFirst("email_verified")?.Value == "true";
+        if (!emailVerified && !string.IsNullOrEmpty(userMetadataJson))
+        {
+            try
+            {
+                using var doc = JsonDocument.Parse(userMetadataJson);
+                if (doc.RootElement.TryGetProperty("email_verified", out var evProp) && evProp.ValueKind == JsonValueKind.True)
+                {
+                    emailVerified = true;
+                }
+            }
+            catch { }
+        }
         var role = User.FindFirst("role")?.Value;
 
         if (string.IsNullOrEmpty(userId))
