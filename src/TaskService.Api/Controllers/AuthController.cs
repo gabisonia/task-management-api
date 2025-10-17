@@ -9,19 +9,14 @@ namespace TaskService.Api.Controllers;
 [ApiController]
 [ApiVersion("1.0")]
 [Route("api/v{version:apiVersion}/auth")]
-public sealed class AuthController : ControllerBase
+public sealed class AuthController(ISupabaseAuthService authService) : ControllerBase
 {
-    private readonly ISupabaseAuthService _authService;
-    public AuthController(ISupabaseAuthService authService)
-    {
-        _authService = authService;
-    }
     [HttpPost("register")]
     [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetailsResponse), StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> Register([FromBody] RegisterRequest request, CancellationToken cancellationToken)
     {
-        var result = await _authService.RegisterAsync(request, cancellationToken);
+        var result = await authService.RegisterAsync(request, cancellationToken);
 
         if (result.IsSuccess)
         {
@@ -39,7 +34,7 @@ public sealed class AuthController : ControllerBase
     [ProducesResponseType(typeof(ProblemDetailsResponse), StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> Login([FromBody] LoginRequest request, CancellationToken cancellationToken)
     {
-        var result = await _authService.LoginAsync(request, cancellationToken);
+        var result = await authService.LoginAsync(request, cancellationToken);
 
         if (result.IsSuccess)
         {

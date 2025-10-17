@@ -9,15 +9,9 @@ namespace TaskService.Application.Tasks.Queries;
 public sealed record GetTasksQuery(string ProjectId, string? Status, int PageNumber, int PageSize)
     : IRequest<Result<PaginatedList<TaskListItemResponse>>>;
 
-public sealed class GetTasksQueryHandler : IRequestHandler<GetTasksQuery, Result<PaginatedList<TaskListItemResponse>>>
+public sealed class GetTasksQueryHandler(ITaskRepository taskRepository)
+    : IRequestHandler<GetTasksQuery, Result<PaginatedList<TaskListItemResponse>>>
 {
-    private readonly ITaskRepository _taskRepository;
-
-    public GetTasksQueryHandler(ITaskRepository taskRepository)
-    {
-        _taskRepository = taskRepository;
-    }
-
     public async Task<Result<PaginatedList<TaskListItemResponse>>> Handle(GetTasksQuery request,
         CancellationToken cancellationToken)
     {
@@ -29,7 +23,7 @@ public sealed class GetTasksQueryHandler : IRequestHandler<GetTasksQuery, Result
         }
 
         int skip = (request.PageNumber - 1) * request.PageSize;
-        (IReadOnlyList<TaskItem> tasks, long totalCount) = await _taskRepository.GetByProjectAsync(
+        (IReadOnlyList<TaskItem> tasks, long totalCount) = await taskRepository.GetByProjectAsync(
             request.ProjectId,
             statusFilter,
             skip,

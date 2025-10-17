@@ -16,20 +16,15 @@ namespace TaskService.Api.Controllers;
 [ApiVersion("1.0")]
 [Route("api/v{version:apiVersion}/tasks")]
 [Authorize]
-public sealed class TasksController : ControllerBase
+public sealed class TasksController(IMediator mediator) : ControllerBase
 {
-    private readonly IMediator _mediator;
-    public TasksController(IMediator mediator)
-    {
-        _mediator = mediator;
-    }
     [HttpGet("{id}")]
     [ProducesResponseType(typeof(TaskResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetailsResponse), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetById(string id, CancellationToken cancellationToken)
     {
         var query = new GetTaskByIdQuery(id);
-        var result = await _mediator.Send(query, cancellationToken);
+        var result = await mediator.Send(query, cancellationToken);
 
         if (result.IsSuccess)
         {
@@ -50,7 +45,7 @@ public sealed class TasksController : ControllerBase
         CancellationToken cancellationToken = default)
     {
         var query = new GetTasksQuery(projectId, status, pageNumber, pageSize);
-        var result = await _mediator.Send(query, cancellationToken);
+        var result = await mediator.Send(query, cancellationToken);
 
         if (result.IsSuccess)
         {
@@ -64,7 +59,8 @@ public sealed class TasksController : ControllerBase
     [HttpPost("projects/{projectId}/tasks")]
     [ProducesResponseType(typeof(TaskResponse), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ProblemDetailsResponse), StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> Create(string projectId, [FromBody] CreateTaskRequest request, CancellationToken cancellationToken)
+    public async Task<IActionResult> Create(string projectId, [FromBody] CreateTaskRequest request,
+        CancellationToken cancellationToken)
     {
         if (!Enum.TryParse<Priority>(request.Priority, true, out var priority))
         {
@@ -81,7 +77,7 @@ public sealed class TasksController : ControllerBase
             request.DueDate,
             request.Tags ?? []);
 
-        var result = await _mediator.Send(command, cancellationToken);
+        var result = await mediator.Send(command, cancellationToken);
 
         if (result.IsSuccess)
         {
@@ -96,7 +92,8 @@ public sealed class TasksController : ControllerBase
     [ProducesResponseType(typeof(TaskResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetailsResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetailsResponse), StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> Update(string id, [FromBody] UpdateTaskRequest request, CancellationToken cancellationToken)
+    public async Task<IActionResult> Update(string id, [FromBody] UpdateTaskRequest request,
+        CancellationToken cancellationToken)
     {
         if (!Enum.TryParse<TaskItemStatus>(request.Status, true, out var status))
         {
@@ -117,7 +114,7 @@ public sealed class TasksController : ControllerBase
             request.DueDate,
             request.Tags ?? []);
 
-        var result = await _mediator.Send(command, cancellationToken);
+        var result = await mediator.Send(command, cancellationToken);
 
         if (result.IsSuccess)
         {
@@ -134,7 +131,7 @@ public sealed class TasksController : ControllerBase
     public async Task<IActionResult> Delete(string id, CancellationToken cancellationToken)
     {
         var command = new DeleteTaskCommand(id);
-        var result = await _mediator.Send(command, cancellationToken);
+        var result = await mediator.Send(command, cancellationToken);
 
         if (result.IsSuccess)
         {

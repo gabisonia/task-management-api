@@ -14,20 +14,15 @@ namespace TaskService.Api.Controllers;
 [ApiVersion("1.0")]
 [Route("api/v{version:apiVersion}/projects")]
 [Authorize]
-public sealed class ProjectsController : ControllerBase
+public sealed class ProjectsController(IMediator mediator) : ControllerBase
 {
-    private readonly IMediator _mediator;
-    public ProjectsController(IMediator mediator)
-    {
-        _mediator = mediator;
-    }
     [HttpGet("{id}")]
     [ProducesResponseType(typeof(ProjectResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetailsResponse), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetById(string id, CancellationToken cancellationToken)
     {
         var query = new GetProjectByIdQuery(id);
-        var result = await _mediator.Send(query, cancellationToken);
+        var result = await mediator.Send(query, cancellationToken);
 
         if (result.IsSuccess)
         {
@@ -47,7 +42,7 @@ public sealed class ProjectsController : ControllerBase
     {
         var ownerId = User.FindFirst("sub")?.Value ?? User.FindFirst("user_id")?.Value ?? string.Empty;
         var query = new GetProjectsQuery(ownerId, pageNumber, pageSize);
-        var result = await _mediator.Send(query, cancellationToken);
+        var result = await mediator.Send(query, cancellationToken);
 
         if (result.IsSuccess)
         {
@@ -66,7 +61,7 @@ public sealed class ProjectsController : ControllerBase
     {
         var ownerId = User.FindFirst("sub")?.Value ?? User.FindFirst("user_id")?.Value ?? string.Empty;
         var command = new CreateProjectCommand(ownerId, request.Name, request.Description);
-        var result = await _mediator.Send(command, cancellationToken);
+        var result = await mediator.Send(command, cancellationToken);
 
         if (result.IsSuccess)
         {
@@ -85,7 +80,7 @@ public sealed class ProjectsController : ControllerBase
         CancellationToken cancellationToken)
     {
         var command = new UpdateProjectCommand(id, request.Name, request.Description);
-        var result = await _mediator.Send(command, cancellationToken);
+        var result = await mediator.Send(command, cancellationToken);
 
         if (result.IsSuccess)
         {
@@ -102,7 +97,7 @@ public sealed class ProjectsController : ControllerBase
     public async Task<IActionResult> Delete(string id, CancellationToken cancellationToken)
     {
         var command = new DeleteProjectCommand(id);
-        var result = await _mediator.Send(command, cancellationToken);
+        var result = await mediator.Send(command, cancellationToken);
 
         if (result.IsSuccess)
         {
