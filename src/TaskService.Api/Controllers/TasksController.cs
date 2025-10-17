@@ -14,7 +14,7 @@ namespace TaskService.Api.Controllers;
 
 [ApiController]
 [ApiVersion("1.0")]
-[Route("api/v{version:apiVersion}/tasks")]
+[Route("api/tasks")]
 [Authorize]
 public sealed class TasksController(IMediator mediator) : ControllerBase
 {

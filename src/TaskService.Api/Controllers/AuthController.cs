@@ -8,7 +8,7 @@ namespace TaskService.Api.Controllers;
 
 [ApiController]
 [ApiVersion("1.0")]
-[Route("api/v{version:apiVersion}/auth")]
+[Route("api/auth")]
 public sealed class AuthController(ISupabaseAuthService authService) : ControllerBase
 {
     [HttpPost("register")]

@@ -4,7 +4,6 @@ using TaskService.Api.Middleware;
 using TaskService.Application;
 using TaskService.Infrastructure;
 
-// Bootstrap logger
 Log.Logger = new LoggerConfiguration()
     .WriteTo.Console(new CompactJsonFormatter())
     .CreateBootstrapLogger();
@@ -32,16 +31,13 @@ try
         options.DefaultApiVersion = new Microsoft.AspNetCore.Mvc.ApiVersion(1, 0);
         options.AssumeDefaultVersionWhenUnspecified = true;
         options.ReportApiVersions = true;
-        options.ApiVersionReader = Microsoft.AspNetCore.Mvc.Versioning.ApiVersionReader.Combine(
-            new Microsoft.AspNetCore.Mvc.Versioning.UrlSegmentApiVersionReader(),
-            new Microsoft.AspNetCore.Mvc.Versioning.HeaderApiVersionReader("x-api-version"),
-            new Microsoft.AspNetCore.Mvc.Versioning.QueryStringApiVersionReader("api-version"));
+        options.ApiVersionReader = new Microsoft.AspNetCore.Mvc.Versioning.HeaderApiVersionReader("x-api-version");
     });
 
     builder.Services.AddVersionedApiExplorer(options =>
     {
         options.GroupNameFormat = "'v'VVV";
-        options.SubstituteApiVersionInUrl = true;
+        options.SubstituteApiVersionInUrl = false;
     });
 
     builder.Services.AddControllers();
@@ -82,6 +78,9 @@ try
                 Array.Empty<string>()
             }
         });
+
+        // Add x-api-version header to all operations for discoverability in Swagger UI
+        options.OperationFilter<TaskService.Api.Swagger.ApiVersionHeaderOperationFilter>();
     });
 
     // Health Checks
@@ -135,9 +134,4 @@ catch (Exception ex)
 finally
 {
     Log.CloseAndFlush();
-}
-
-// Expose Program for WebApplicationFactory in tests
-public partial class Program
-{
 }
