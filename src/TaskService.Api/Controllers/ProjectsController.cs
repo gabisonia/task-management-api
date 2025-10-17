@@ -1,13 +1,11 @@
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using TaskService.Application.Projects.Commands.CreateProject;
-using TaskService.Application.Projects.Commands.DeleteProject;
-using TaskService.Application.Projects.Commands.UpdateProject;
-using TaskService.Application.Projects.Queries.GetProjectById;
 using TaskService.Application.Projects.Queries.GetProjects;
 using TaskService.Application.Dtos.Common;
 using TaskService.Application.Dtos.Projects;
+using TaskService.Application.Projects.Commands;
+using TaskService.Application.Projects.Queries;
 using TaskService.Shared;
 
 namespace TaskService.Api.Controllers;

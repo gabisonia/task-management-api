@@ -1,11 +1,10 @@
 using FluentValidation;
 using MediatR;
-using TaskService.Application.Abstractions;
 using TaskService.Application.Dtos.Projects;
 using TaskService.Domain.ProjectManagement;
 using TaskService.Shared;
 
-namespace TaskService.Application.Projects.Commands.UpdateProject;
+namespace TaskService.Application.Projects.Commands;
 
 public sealed record UpdateProjectCommand(string Id, string Name, string? Description)
     : IRequest<Result<ProjectResponse>>;
@@ -22,27 +21,22 @@ public sealed class UpdateProjectCommandValidator : AbstractValidator<UpdateProj
     }
 }
 
-public sealed class UpdateProjectCommandHandler : IRequestHandler<UpdateProjectCommand, Result<ProjectResponse>>
+public sealed class UpdateProjectCommandHandler(
+    IProjectRepository projectRepository,
+    IDateTimeProvider dateTimeProvider)
+    : IRequestHandler<UpdateProjectCommand, Result<ProjectResponse>>
 {
-    private readonly IProjectRepository _projectRepository;
-    private readonly IDateTimeProvider _dateTimeProvider;
-
-    public UpdateProjectCommandHandler(IProjectRepository projectRepository, IDateTimeProvider dateTimeProvider)
-    {
-        _projectRepository = projectRepository;
-        _dateTimeProvider = dateTimeProvider;
-    }
-
     public async Task<Result<ProjectResponse>> Handle(UpdateProjectCommand request, CancellationToken cancellationToken)
     {
-        Project? project = await _projectRepository.GetByIdAsync(request.Id, cancellationToken);
+        Project? project = await projectRepository.GetByIdAsync(request.Id, cancellationToken);
         if (project == null)
         {
             return Result<ProjectResponse>.Failure(
                 new Error("PROJECT_NOT_FOUND", $"Project with ID '{request.Id}' not found."));
         }
 
-        bool exists = await _projectRepository.ExistsByNameAsync(project.OwnerId, request.Name, request.Id, cancellationToken);
+        bool exists =
+            await projectRepository.ExistsByNameAsync(project.OwnerId, request.Name, request.Id, cancellationToken);
         if (exists)
         {
             return Result<ProjectResponse>.Failure(
@@ -51,9 +45,9 @@ public sealed class UpdateProjectCommandHandler : IRequestHandler<UpdateProjectC
 
         project.Name = request.Name;
         project.Description = request.Description;
-        project.UpdatedAt = _dateTimeProvider.UtcNow;
+        project.UpdatedAt = dateTimeProvider.UtcNow;
 
-        await _projectRepository.UpdateAsync(project, cancellationToken);
+        await projectRepository.UpdateAsync(project, cancellationToken);
 
         var response = new ProjectResponse
         {

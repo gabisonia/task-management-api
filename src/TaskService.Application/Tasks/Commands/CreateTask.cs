@@ -18,25 +18,15 @@ public sealed record CreateTaskCommand(
     DateTime? DueDate,
     string[] Tags) : IRequest<Result<TaskResponse>>;
 
-public sealed class CreateTaskCommandHandler : IRequestHandler<CreateTaskCommand, Result<TaskResponse>>
+public sealed class CreateTaskCommandHandler(
+    ITaskRepository taskRepository,
+    IProjectRepository projectRepository,
+    IDateTimeProvider dateTimeProvider)
+    : IRequestHandler<CreateTaskCommand, Result<TaskResponse>>
 {
-    private readonly ITaskRepository _taskRepository;
-    private readonly IProjectRepository _projectRepository;
-    private readonly IDateTimeProvider _dateTimeProvider;
-
-    public CreateTaskCommandHandler(
-        ITaskRepository taskRepository,
-        IProjectRepository projectRepository,
-        IDateTimeProvider dateTimeProvider)
-    {
-        _taskRepository = taskRepository;
-        _projectRepository = projectRepository;
-        _dateTimeProvider = dateTimeProvider;
-    }
-
     public async Task<Result<TaskResponse>> Handle(CreateTaskCommand request, CancellationToken cancellationToken)
     {
-        Project? project = await _projectRepository.GetByIdAsync(request.ProjectId, cancellationToken);
+        Project? project = await projectRepository.GetByIdAsync(request.ProjectId, cancellationToken);
         if (project == null)
         {
             return Result<TaskResponse>.Failure(
@@ -54,12 +44,12 @@ public sealed class CreateTaskCommandHandler : IRequestHandler<CreateTaskCommand
             AssigneeUserId = request.AssigneeUserId,
             DueDate = request.DueDate,
             Tags = request.Tags,
-            CreatedAt = _dateTimeProvider.UtcNow,
-            UpdatedAt = _dateTimeProvider.UtcNow,
+            CreatedAt = dateTimeProvider.UtcNow,
+            UpdatedAt = dateTimeProvider.UtcNow,
             IsDeleted = false
         };
 
-        await _taskRepository.CreateAsync(task, cancellationToken);
+        await taskRepository.CreateAsync(task, cancellationToken);
 
         var response = new TaskResponse
         {

@@ -1,12 +1,11 @@
 using FluentValidation;
 using MediatR;
 using MongoDB.Bson;
-using TaskService.Application.Abstractions;
 using TaskService.Application.Dtos.Projects;
 using TaskService.Domain.ProjectManagement;
 using TaskService.Shared;
 
-namespace TaskService.Application.Projects.Commands.CreateProject;
+namespace TaskService.Application.Projects.Commands;
 
 public sealed record CreateProjectCommand(string OwnerId, string Name, string? Description)
     : IRequest<Result<ProjectResponse>>;
@@ -23,20 +22,14 @@ public sealed class CreateProjectCommandValidator : AbstractValidator<CreateProj
     }
 }
 
-public sealed class CreateProjectCommandHandler : IRequestHandler<CreateProjectCommand, Result<ProjectResponse>>
+public sealed class CreateProjectCommandHandler(
+    IProjectRepository projectRepository,
+    IDateTimeProvider dateTimeProvider)
+    : IRequestHandler<CreateProjectCommand, Result<ProjectResponse>>
 {
-    private readonly IProjectRepository _projectRepository;
-    private readonly IDateTimeProvider _dateTimeProvider;
-
-    public CreateProjectCommandHandler(IProjectRepository projectRepository, IDateTimeProvider dateTimeProvider)
-    {
-        _projectRepository = projectRepository;
-        _dateTimeProvider = dateTimeProvider;
-    }
-
     public async Task<Result<ProjectResponse>> Handle(CreateProjectCommand request, CancellationToken cancellationToken)
     {
-        bool exists = await _projectRepository.ExistsByNameAsync(request.OwnerId, request.Name, null, cancellationToken);
+        bool exists = await projectRepository.ExistsByNameAsync(request.OwnerId, request.Name, null, cancellationToken);
         if (exists)
         {
             return Result<ProjectResponse>.Failure(
@@ -49,12 +42,12 @@ public sealed class CreateProjectCommandHandler : IRequestHandler<CreateProjectC
             OwnerId = request.OwnerId,
             Name = request.Name,
             Description = request.Description,
-            CreatedAt = _dateTimeProvider.UtcNow,
-            UpdatedAt = _dateTimeProvider.UtcNow,
+            CreatedAt = dateTimeProvider.UtcNow,
+            UpdatedAt = dateTimeProvider.UtcNow,
             IsDeleted = false
         };
 
-        await _projectRepository.CreateAsync(project, cancellationToken);
+        await projectRepository.CreateAsync(project, cancellationToken);
 
         var response = new ProjectResponse
         {

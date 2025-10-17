@@ -15,20 +15,12 @@ public sealed record UpdateTaskCommand(
     DateTime? DueDate,
     string[] Tags) : IRequest<Result<TaskResponse>>;
 
-public sealed class UpdateTaskCommandHandler : IRequestHandler<UpdateTaskCommand, Result<TaskResponse>>
+public sealed class UpdateTaskCommandHandler(ITaskRepository taskRepository, IDateTimeProvider dateTimeProvider)
+    : IRequestHandler<UpdateTaskCommand, Result<TaskResponse>>
 {
-    private readonly ITaskRepository _taskRepository;
-    private readonly IDateTimeProvider _dateTimeProvider;
-
-    public UpdateTaskCommandHandler(ITaskRepository taskRepository, IDateTimeProvider dateTimeProvider)
-    {
-        _taskRepository = taskRepository;
-        _dateTimeProvider = dateTimeProvider;
-    }
-
     public async Task<Result<TaskResponse>> Handle(UpdateTaskCommand request, CancellationToken cancellationToken)
     {
-        TaskItem? task = await _taskRepository.GetByIdAsync(request.Id, cancellationToken);
+        TaskItem? task = await taskRepository.GetByIdAsync(request.Id, cancellationToken);
         if (task == null)
         {
             return Result<TaskResponse>.Failure(new Error("TASK_NOT_FOUND", $"Task with ID '{request.Id}' not found."));
@@ -40,9 +32,9 @@ public sealed class UpdateTaskCommandHandler : IRequestHandler<UpdateTaskCommand
         task.Priority = request.Priority;
         task.DueDate = request.DueDate;
         task.Tags = request.Tags;
-        task.UpdatedAt = _dateTimeProvider.UtcNow;
+        task.UpdatedAt = dateTimeProvider.UtcNow;
 
-        await _taskRepository.UpdateAsync(task, cancellationToken);
+        await taskRepository.UpdateAsync(task, cancellationToken);
 
         var response = new TaskResponse
         {

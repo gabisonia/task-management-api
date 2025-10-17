@@ -4,7 +4,7 @@ using TaskService.Application.Dtos.Tasks;
 using TaskService.Domain.TaskItemManagement;
 using TaskService.Shared;
 
-namespace TaskService.Application.Tasks.Queries.GetTasks;
+namespace TaskService.Application.Tasks.Queries;
 
 public sealed record GetTasksQuery(string ProjectId, string? Status, int PageNumber, int PageSize)
     : IRequest<Result<PaginatedList<TaskListItemResponse>>>;
@@ -18,10 +18,12 @@ public sealed class GetTasksQueryHandler : IRequestHandler<GetTasksQuery, Result
         _taskRepository = taskRepository;
     }
 
-    public async Task<Result<PaginatedList<TaskListItemResponse>>> Handle(GetTasksQuery request, CancellationToken cancellationToken)
+    public async Task<Result<PaginatedList<TaskListItemResponse>>> Handle(GetTasksQuery request,
+        CancellationToken cancellationToken)
     {
         TaskItemStatus? statusFilter = null;
-        if (!string.IsNullOrEmpty(request.Status) && Enum.TryParse<TaskItemStatus>(request.Status, true, out var parsedStatus))
+        if (!string.IsNullOrEmpty(request.Status) &&
+            Enum.TryParse<TaskItemStatus>(request.Status, true, out var parsedStatus))
         {
             statusFilter = parsedStatus;
         }

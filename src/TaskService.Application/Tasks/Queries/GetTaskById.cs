@@ -3,22 +3,16 @@ using TaskService.Application.Dtos.Tasks;
 using TaskService.Domain.TaskItemManagement;
 using TaskService.Shared;
 
-namespace TaskService.Application.Tasks.Queries.GetTaskById;
+namespace TaskService.Application.Tasks.Queries;
 
 public sealed record GetTaskByIdQuery(string Id) : IRequest<Result<TaskResponse>>;
 
-public sealed class GetTaskByIdQueryHandler : IRequestHandler<GetTaskByIdQuery, Result<TaskResponse>>
+public sealed class GetTaskByIdQueryHandler(ITaskRepository taskRepository)
+    : IRequestHandler<GetTaskByIdQuery, Result<TaskResponse>>
 {
-    private readonly ITaskRepository _taskRepository;
-
-    public GetTaskByIdQueryHandler(ITaskRepository taskRepository)
-    {
-        _taskRepository = taskRepository;
-    }
-
     public async Task<Result<TaskResponse>> Handle(GetTaskByIdQuery request, CancellationToken cancellationToken)
     {
-        TaskItem? task = await _taskRepository.GetByIdAsync(request.Id, cancellationToken);
+        TaskItem? task = await taskRepository.GetByIdAsync(request.Id, cancellationToken);
 
         if (task == null)
         {

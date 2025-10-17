@@ -4,10 +4,9 @@ using Microsoft.AspNetCore.Mvc;
 using TaskService.Application.Tasks.Commands.CreateTask;
 using TaskService.Application.Tasks.Commands.DeleteTask;
 using TaskService.Application.Tasks.Commands.UpdateTask;
-using TaskService.Application.Tasks.Queries.GetTaskById;
-using TaskService.Application.Tasks.Queries.GetTasks;
 using TaskService.Application.Dtos.Common;
 using TaskService.Application.Dtos.Tasks;
+using TaskService.Application.Tasks.Queries;
 using TaskService.Shared;
 using TaskService.Domain.TaskItemManagement;
 

@@ -9,19 +9,14 @@ namespace TaskService.Application.Projects.Queries.GetProjects;
 public sealed record GetProjectsQuery(string OwnerId, int PageNumber, int PageSize)
     : IRequest<Result<PaginatedList<ProjectListItemResponse>>>;
 
-public sealed class GetProjectsQueryHandler : IRequestHandler<GetProjectsQuery, Result<PaginatedList<ProjectListItemResponse>>>
+public sealed class GetProjectsQueryHandler(IProjectRepository projectRepository)
+    : IRequestHandler<GetProjectsQuery, Result<PaginatedList<ProjectListItemResponse>>>
 {
-    private readonly IProjectRepository _projectRepository;
-
-    public GetProjectsQueryHandler(IProjectRepository projectRepository)
-    {
-        _projectRepository = projectRepository;
-    }
-
-    public async Task<Result<PaginatedList<ProjectListItemResponse>>> Handle(GetProjectsQuery request, CancellationToken cancellationToken)
+    public async Task<Result<PaginatedList<ProjectListItemResponse>>> Handle(GetProjectsQuery request,
+        CancellationToken cancellationToken)
     {
         int skip = (request.PageNumber - 1) * request.PageSize;
-        (IReadOnlyList<Project> projects, long totalCount) = await _projectRepository.GetByOwnerAsync(
+        (IReadOnlyList<Project> projects, long totalCount) = await projectRepository.GetByOwnerAsync(
             request.OwnerId,
             skip,
             request.PageSize,
