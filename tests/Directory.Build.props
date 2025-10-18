@@ -8,5 +8,6 @@
     <NoWarn>$(NoWarn);CA1707</NoWarn> <!-- Test methods use underscores (MethodName_Scenario_ExpectedResult) -->
     <NoWarn>$(NoWarn);CA1062</NoWarn> <!-- Validate public method arguments (not needed in tests) -->
     <NoWarn>$(NoWarn);CA2007</NoWarn> <!-- ConfigureAwait in tests (not required) -->
+    <NoWarn>$(NoWarn);CA1861</NoWarn> <!-- Array allocations in asserts; acceptable in tests -->
   </PropertyGroup>
 </Project>

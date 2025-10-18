@@ -39,6 +39,10 @@
     <PackageVersion Include="Moq" Version="4.20.72" />
     <PackageVersion Include="xunit" Version="2.5.3" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="2.5.3" />
+
+    <!-- Testcontainers for integration tests -->
+    <PackageVersion Include="Testcontainers" Version="3.8.0" />
+    <PackageVersion Include="Testcontainers.MongoDb" Version="3.8.0" />
+    <PackageVersion Include="Testcontainers.Redis" Version="3.8.0" />
   </ItemGroup>
 </Project>
-
