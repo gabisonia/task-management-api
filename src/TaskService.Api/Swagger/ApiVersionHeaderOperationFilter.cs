@@ -15,7 +15,7 @@ public sealed class ApiVersionHeaderOperationFilter : IOperationFilter
             {
                 Name = "x-api-version",
                 In = ParameterLocation.Header,
-                Required = false,
+                Required = true,
                 Description = "API version (e.g., 1.0)",
                 Schema = new OpenApiSchema
                 {

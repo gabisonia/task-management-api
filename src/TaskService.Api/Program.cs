@@ -14,22 +14,19 @@ try
 
     WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
-    // Configure Serilog
     builder.Host.UseSerilog((context, services, configuration) => configuration
         .ReadFrom.Configuration(context.Configuration)
         .ReadFrom.Services(services)
         .Enrich.FromLogContext()
         .WriteTo.Console(new CompactJsonFormatter()));
 
-    // Add services to the container
     builder.Services.AddInfrastructure(builder.Configuration);
     builder.Services.AddApplication();
 
-    // API Versioning
     builder.Services.AddApiVersioning(options =>
     {
         options.DefaultApiVersion = new Microsoft.AspNetCore.Mvc.ApiVersion(1, 0);
-        options.AssumeDefaultVersionWhenUnspecified = true;
+        options.AssumeDefaultVersionWhenUnspecified = false; // Require explicit version header
         options.ReportApiVersions = true;
         options.ApiVersionReader = new Microsoft.AspNetCore.Mvc.Versioning.HeaderApiVersionReader("x-api-version");
     });
@@ -53,7 +50,6 @@ try
                 Contact = new Microsoft.OpenApi.Models.OpenApiContact { Name = "Task Service Team" }
             });
 
-        // JWT Bearer authentication
         options.AddSecurityDefinition("Bearer",
             new Microsoft.OpenApi.Models.OpenApiSecurityScheme
             {
@@ -79,7 +75,6 @@ try
             }
         });
 
-        // Add x-api-version header to all operations for discoverability in Swagger UI
         options.OperationFilter<TaskService.Api.Swagger.ApiVersionHeaderOperationFilter>();
     });
 
@@ -97,7 +92,6 @@ try
 
     WebApplication app = builder.Build();
 
-    // Configure the HTTP request pipeline
     app.UseMiddleware<GlobalExceptionHandlerMiddleware>();
     app.UseSerilogRequestLogging();
 
@@ -111,7 +105,6 @@ try
     app.UseAuthentication();
     app.UseAuthorization();
 
-    // Health check endpoints
     app.MapHealthChecks("/health");
     app.MapHealthChecks("/health/ready",
         new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
