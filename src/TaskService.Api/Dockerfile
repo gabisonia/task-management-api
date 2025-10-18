@@ -4,7 +4,7 @@ FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 
 # Copy solution and props for better layer caching
-COPY TaskService.sln ./
+COPY TaskService.slnx ./
 COPY Directory.Build.props ./
 COPY Directory.Packages.props ./
 COPY global.json ./
