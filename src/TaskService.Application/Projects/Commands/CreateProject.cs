@@ -1,6 +1,7 @@
 using FluentValidation;
 using MediatR;
 using MongoDB.Bson;
+using TaskService.Application.Abstractions;
 using TaskService.Application.Dtos.Projects;
 using TaskService.Domain.ProjectManagement;
 using TaskService.Shared;
@@ -24,7 +25,8 @@ public sealed class CreateProjectCommandValidator : AbstractValidator<CreateProj
 
 public sealed class CreateProjectCommandHandler(
     IProjectRepository projectRepository,
-    IDateTimeProvider dateTimeProvider)
+    IDateTimeProvider dateTimeProvider,
+    ICacheService cache)
     : IRequestHandler<CreateProjectCommand, Result<ProjectResponse>>
 {
     public async Task<Result<ProjectResponse>> Handle(CreateProjectCommand request, CancellationToken cancellationToken)
@@ -48,6 +50,9 @@ public sealed class CreateProjectCommandHandler(
         };
 
         await projectRepository.CreateAsync(project, cancellationToken);
+
+        // Invalidate project lists for this owner
+        await cache.RemoveByPatternAsync($"projects:list:{request.OwnerId}:*", cancellationToken);
 
         var response = new ProjectResponse
         {

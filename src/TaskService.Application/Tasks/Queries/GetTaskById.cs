@@ -1,4 +1,5 @@
 using MediatR;
+using TaskService.Application.Abstractions;
 using TaskService.Application.Dtos.Tasks;
 using TaskService.Domain.TaskItemManagement;
 using TaskService.Shared;
@@ -7,11 +8,18 @@ namespace TaskService.Application.Tasks.Queries;
 
 public sealed record GetTaskByIdQuery(string Id) : IRequest<Result<TaskResponse>>;
 
-public sealed class GetTaskByIdQueryHandler(ITaskRepository taskRepository)
+public sealed class GetTaskByIdQueryHandler(ITaskRepository taskRepository, ICacheService cache)
     : IRequestHandler<GetTaskByIdQuery, Result<TaskResponse>>
 {
     public async Task<Result<TaskResponse>> Handle(GetTaskByIdQuery request, CancellationToken cancellationToken)
     {
+        string cacheKey = $"tasks:{request.Id}";
+        var cached = await cache.GetAsync<TaskResponse>(cacheKey, cancellationToken);
+        if (cached is not null)
+        {
+            return Result<TaskResponse>.Success(cached);
+        }
+
         TaskItem? task = await taskRepository.GetByIdAsync(request.Id, cancellationToken);
 
         if (task == null)
@@ -31,9 +39,11 @@ public sealed class GetTaskByIdQueryHandler(ITaskRepository taskRepository)
             DueDate = task.DueDate,
             Tags = task.Tags,
             CreatedAt = task.CreatedAt,
-            UpdatedAt = task.UpdatedAt
+            UpdatedAt = task.UpdatedAt,
+            ETag = ETagGenerator.From(task.Id.ToString(), task.UpdatedAt)
         };
 
+        await cache.SetAsync(cacheKey, response, TimeSpan.FromMinutes(5), cancellationToken);
         return Result<TaskResponse>.Success(response);
     }
 }

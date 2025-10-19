@@ -3,6 +3,11 @@ using Serilog.Formatting.Compact;
 using TaskService.Api.Middleware;
 using TaskService.Application;
 using TaskService.Infrastructure;
+using Microsoft.AspNetCore.HttpLogging;
+using Microsoft.AspNetCore.RateLimiting;
+using System.Threading.RateLimiting;
+using Microsoft.AspNetCore.OutputCaching;
+using Microsoft.Net.Http.Headers;
 
 Log.Logger = new LoggerConfiguration()
     .WriteTo.Console(new CompactJsonFormatter())
@@ -26,7 +31,7 @@ try
     builder.Services.AddApiVersioning(options =>
     {
         options.DefaultApiVersion = new Microsoft.AspNetCore.Mvc.ApiVersion(1, 0);
-        options.AssumeDefaultVersionWhenUnspecified = false; // Require explicit version header
+        options.AssumeDefaultVersionWhenUnspecified = false;
         options.ReportApiVersions = true;
         options.ApiVersionReader = new Microsoft.AspNetCore.Mvc.Versioning.HeaderApiVersionReader("x-api-version");
     });
@@ -84,16 +89,74 @@ try
             _ => new MongoDB.Driver.MongoClient(builder.Configuration.GetSection("MongoDB:ConnectionString").Value ??
                                                 "mongodb://localhost:27017"),
             name: "mongodb",
-            timeout: TimeSpan.FromSeconds(3))
+            timeout: TimeSpan.FromSeconds(3),
+            tags: ["ready"])
         .AddRedis(
             builder.Configuration.GetSection("Redis:ConnectionString").Value ?? "localhost:6379",
             name: "redis",
-            timeout: TimeSpan.FromSeconds(3));
+            timeout: TimeSpan.FromSeconds(3),
+            tags: ["ready"]);
+
+    // HTTP logging (headers/body sizes, exclude sensitive headers)
+    builder.Services.AddHttpLogging(options =>
+    {
+        options.LoggingFields = HttpLoggingFields.RequestPropertiesAndHeaders |
+                                 HttpLoggingFields.ResponsePropertiesAndHeaders;
+        options.RequestHeaders.Add("x-api-version");
+        options.ResponseHeaders.Add("x-correlation-id");
+    });
+
+    // Response compression for JSON
+    builder.Services.AddResponseCompression(options =>
+    {
+        options.EnableForHttps = true;
+        options.MimeTypes =
+        [
+            "application/json",
+            "application/problem+json",
+            "text/plain"
+        ];
+    });
+
+    // Output caching for GET endpoints
+    builder.Services.AddOutputCache(options =>
+    {
+        options.AddPolicy("Cache30s", b => b
+            .Expire(TimeSpan.FromSeconds(30))
+            .SetVaryByHeader("x-api-version")
+            .SetVaryByRouteValue("id"));
+
+        options.AddPolicy("CacheList30s", b => b
+            .Expire(TimeSpan.FromSeconds(30))
+            .SetVaryByHeader("x-api-version")
+            .SetVaryByQuery("pageNumber", "pageSize", "status", "projectId"));
+    });
+
+    // Basic IP-based rate limiting (100 req/min)
+    builder.Services.AddRateLimiter(options =>
+    {
+        options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
+        {
+            string key = context.Connection.RemoteIpAddress?.ToString() ?? "anonymous";
+            return RateLimitPartition.GetFixedWindowLimiter(key, _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 100,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+                AutoReplenishment = true
+            });
+        });
+        options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    });
 
     WebApplication app = builder.Build();
 
+    // Correlation ID first for consistent tracing
+    app.UseMiddleware<CorrelationIdMiddleware>();
+
     app.UseMiddleware<GlobalExceptionHandlerMiddleware>();
     app.UseSerilogRequestLogging();
+    app.UseHttpLogging();
 
     if (app.Environment.IsDevelopment())
     {
@@ -101,7 +164,19 @@ try
         app.UseSwaggerUI();
     }
 
+    if (!app.Environment.IsDevelopment())
+    {
+        app.UseHsts();
+    }
+
     app.UseHttpsRedirection();
+    app.UseResponseCompression();
+
+    // Security headers
+    app.UseMiddleware<SecurityHeadersMiddleware>();
+
+    app.UseRateLimiter();
+    app.UseOutputCache();
     app.UseAuthentication();
     app.UseAuthorization();
 

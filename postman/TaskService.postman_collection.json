@@ -1,0 +1,298 @@
+{
+  "info": {
+    "name": "TaskService API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Postman collection for TaskService API with auth, projects, tasks, and health endpoints."
+  },
+  "variable": [
+    { "key": "apiBaseUrl", "value": "http://localhost:5214" },
+    { "key": "accessToken", "value": "" },
+    { "key": "correlationId", "value": "" },
+    { "key": "apiVersion", "value": "1.0" },
+    { "key": "projectId", "value": "" },
+    { "key": "taskId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "x-api-version", "value": "{{apiVersion}}" },
+              { "key": "X-Correlation-ID", "value": "{{correlationId}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{apiBaseUrl}}/api/auth/register", "host": ["{{apiBaseUrl}}"], "path": ["api","auth","register"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"StrongP@ssw0rd!\",\n  \"displayName\": \"Example User\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "x-api-version", "value": "{{apiVersion}}" },
+              { "key": "X-Correlation-ID", "value": "{{correlationId}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{apiBaseUrl}}/api/auth/login", "host": ["{{apiBaseUrl}}"], "path": ["api","auth","login"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"StrongP@ssw0rd!\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const data = pm.response.json();",
+                  "if (data && data.accessToken) { pm.collectionVariables.set('accessToken', data.accessToken); }",
+                  "pm.test('Token captured', function () { pm.expect(pm.collectionVariables.get('accessToken')).to.be.a('string'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Me",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "x-api-version", "value": "{{apiVersion}}" },
+              { "key": "X-Correlation-ID", "value": "{{correlationId}}" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": { "raw": "{{apiBaseUrl}}/api/auth/me", "host": ["{{apiBaseUrl}}"], "path": ["api","auth","me"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Projects",
+      "item": [
+        {
+          "name": "List Projects",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "x-api-version", "value": "{{apiVersion}}" },
+              { "key": "X-Correlation-ID", "value": "{{correlationId}}" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": {
+              "raw": "{{apiBaseUrl}}/api/projects?pageNumber=1&pageSize=10",
+              "host": ["{{apiBaseUrl}}"],
+              "path": ["api","projects"],
+              "query": [
+                { "key": "pageNumber", "value": "1" },
+                { "key": "pageSize", "value": "10" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Project",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "x-api-version", "value": "{{apiVersion}}" },
+              { "key": "X-Correlation-ID", "value": "{{correlationId}}" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{apiBaseUrl}}/api/projects", "host": ["{{apiBaseUrl}}"], "path": ["api","projects"] },
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"My Project\",\n  \"description\": \"Demo\"\n}" }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const data = pm.response.json();",
+                  "if (data && data.id) { pm.collectionVariables.set('projectId', data.id); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Project By Id",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "x-api-version", "value": "{{apiVersion}}" },
+              { "key": "X-Correlation-ID", "value": "{{correlationId}}" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": { "raw": "{{apiBaseUrl}}/api/projects/{{projectId}}", "host": ["{{apiBaseUrl}}"], "path": ["api","projects","{{projectId}}"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const etag = pm.response.headers.get('ETag');",
+                  "if (etag) pm.collectionVariables.set('projectEtag', etag);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update Project (If-Match)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "x-api-version", "value": "{{apiVersion}}" },
+              { "key": "X-Correlation-ID", "value": "{{correlationId}}" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "If-Match", "value": "{{projectEtag}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{apiBaseUrl}}/api/projects/{{projectId}}", "host": ["{{apiBaseUrl}}"], "path": ["api","projects","{{projectId}}"] },
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"My Project Updated\",\n  \"description\": \"Demo Updated\"\n}" }
+          }
+        },
+        {
+          "name": "Delete Project (If-Match)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "x-api-version", "value": "{{apiVersion}}" },
+              { "key": "X-Correlation-ID", "value": "{{correlationId}}" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "If-Match", "value": "{{projectEtag}}" }
+            ],
+            "url": { "raw": "{{apiBaseUrl}}/api/projects/{{projectId}}", "host": ["{{apiBaseUrl}}"], "path": ["api","projects","{{projectId}}"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Tasks",
+      "item": [
+        {
+          "name": "List Project Tasks",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "x-api-version", "value": "{{apiVersion}}" },
+              { "key": "X-Correlation-ID", "value": "{{correlationId}}" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": {
+              "raw": "{{apiBaseUrl}}/api/tasks?projectId={{projectId}}&pageNumber=1&pageSize=10",
+              "host": ["{{apiBaseUrl}}"],
+              "path": ["api","tasks"],
+              "query": [
+                { "key": "projectId", "value": "{{projectId}}" },
+                { "key": "status", "value": "" },
+                { "key": "pageNumber", "value": "1" },
+                { "key": "pageSize", "value": "10" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Task",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "x-api-version", "value": "{{apiVersion}}" },
+              { "key": "X-Correlation-ID", "value": "{{correlationId}}" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{apiBaseUrl}}/api/tasks/projects/{{projectId}}/tasks", "host": ["{{apiBaseUrl}}"], "path": ["api","tasks","projects","{{projectId}}","tasks"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"My Task\",\n  \"description\": \"Do something\",\n  \"priority\": \"Medium\",\n  \"assigneeUserId\": \"\",\n  \"dueDate\": null,\n  \"tags\": []\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const data = pm.response.json();",
+                  "if (data && data.id) { pm.collectionVariables.set('taskId', data.id); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Task By Id",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "x-api-version", "value": "{{apiVersion}}" },
+              { "key": "X-Correlation-ID", "value": "{{correlationId}}" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": { "raw": "{{apiBaseUrl}}/api/tasks/{{taskId}}", "host": ["{{apiBaseUrl}}"], "path": ["api","tasks","{{taskId}}"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const etag = pm.response.headers.get('ETag');",
+                  "if (etag) pm.collectionVariables.set('taskEtag', etag);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update Task (If-Match)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "x-api-version", "value": "{{apiVersion}}" },
+              { "key": "X-Correlation-ID", "value": "{{correlationId}}" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "If-Match", "value": "{{taskEtag}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{apiBaseUrl}}/api/tasks/{{taskId}}", "host": ["{{apiBaseUrl}}"], "path": ["api","tasks","{{taskId}}"] },
+            "body": { "mode": "raw", "raw": "{\n  \"title\": \"My Task Updated\",\n  \"description\": \"Do something else\",\n  \"status\": \"InProgress\",\n  \"priority\": \"High\",\n  \"dueDate\": null,\n  \"tags\": []\n}" }
+          }
+        },
+        {
+          "name": "Delete Task (If-Match)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "x-api-version", "value": "{{apiVersion}}" },
+              { "key": "X-Correlation-ID", "value": "{{correlationId}}" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "If-Match", "value": "{{taskEtag}}" }
+            ],
+            "url": { "raw": "{{apiBaseUrl}}/api/tasks/{{taskId}}", "host": ["{{apiBaseUrl}}"], "path": ["api","tasks","{{taskId}}"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Health",
+      "item": [
+        { "name": "Liveness", "request": { "method": "GET", "url": { "raw": "{{apiBaseUrl}}/health/live", "host": ["{{apiBaseUrl}}"], "path": ["health","live"] } } },
+        { "name": "Readiness", "request": { "method": "GET", "url": { "raw": "{{apiBaseUrl}}/health/ready", "host": ["{{apiBaseUrl}}"], "path": ["health","ready"] } } },
+        { "name": "All", "request": { "method": "GET", "url": { "raw": "{{apiBaseUrl}}/health", "host": ["{{apiBaseUrl}}"], "path": ["health"] } } }
+      ]
+    }
+  ]
+}

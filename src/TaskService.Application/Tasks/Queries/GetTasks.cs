@@ -1,4 +1,5 @@
 using MediatR;
+using TaskService.Application.Abstractions;
 using TaskService.Application.Dtos.Common;
 using TaskService.Application.Dtos.Tasks;
 using TaskService.Domain.TaskItemManagement;
@@ -9,12 +10,19 @@ namespace TaskService.Application.Tasks.Queries;
 public sealed record GetTasksQuery(string ProjectId, string? Status, int PageNumber, int PageSize)
     : IRequest<Result<PaginatedList<TaskListItemResponse>>>;
 
-public sealed class GetTasksQueryHandler(ITaskRepository taskRepository)
+public sealed class GetTasksQueryHandler(ITaskRepository taskRepository, ICacheService cache)
     : IRequestHandler<GetTasksQuery, Result<PaginatedList<TaskListItemResponse>>>
 {
     public async Task<Result<PaginatedList<TaskListItemResponse>>> Handle(GetTasksQuery request,
         CancellationToken cancellationToken)
     {
+        string cacheKey = $"tasks:project:{request.ProjectId}:{request.Status ?? "*"}:{request.PageNumber}:{request.PageSize}";
+        var cached = await cache.GetAsync<PaginatedList<TaskListItemResponse>>(cacheKey, cancellationToken);
+        if (cached is not null)
+        {
+            return Result<PaginatedList<TaskListItemResponse>>.Success(cached);
+        }
+
         TaskItemStatus? statusFilter = null;
         if (!string.IsNullOrEmpty(request.Status) &&
             Enum.TryParse<TaskItemStatus>(request.Status, true, out var parsedStatus))
@@ -51,6 +59,7 @@ public sealed class GetTasksQueryHandler(ITaskRepository taskRepository)
             TotalPages = (int)Math.Ceiling(totalCount / (double)request.PageSize)
         };
 
+        await cache.SetAsync(cacheKey, paginatedList, TimeSpan.FromMinutes(2), cancellationToken);
         return Result<PaginatedList<TaskListItemResponse>>.Success(paginatedList);
     }
 }

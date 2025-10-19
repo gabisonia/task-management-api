@@ -17,6 +17,11 @@ services:
       - DOTNET_ENVIRONMENT=Development
       - MongoDB__ConnectionString=mongodb://mongo:27017
       - Redis__ConnectionString=redis:6379
+      - Supabase__Url=https://ndeipxuknjznwhsvslra.supabase.co
+      - Supabase__Issuer=https://ndeipxuknjznwhsvslra.supabase.co/auth/v1
+      - Supabase__JwtSecret=uyQMqYptcbxoVTPO6B7BcAPgKs3J2BBTu2XLEutLAJrNiIc8JLPoh3wQnEPS6a/1X0AQVEsoC7GsknbR5vXIJQ==
+      - Supabase__Audience=authenticated
+      - Supabase__ServiceKey=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5kZWlweHVrbmp6bndoc3ZzbHJhIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MDUzMjkzMiwiZXhwIjoyMDc2MTA4OTMyfQ.tqbTBDtY7HIrA7suCpiGp279yBJqV_FtDYOJhWMjOt8
     ports:
       - "5214:8080" # host:container
     networks:
@@ -38,6 +43,7 @@ services:
       - redis_data:/data
     networks:
       - appnet
+  
 
 volumes:
   mongo_data:

@@ -7,6 +7,9 @@ using TaskService.Application.Dtos.Projects;
 using TaskService.Application.Projects.Commands;
 using TaskService.Application.Projects.Queries;
 using TaskService.Shared;
+using Microsoft.AspNetCore.OutputCaching;
+using TaskService.Api.Middleware;
+using Microsoft.Net.Http.Headers;
 
 namespace TaskService.Api.Controllers;
 
@@ -17,6 +20,7 @@ namespace TaskService.Api.Controllers;
 public sealed class ProjectsController(IMediator mediator) : ControllerBase
 {
     [HttpGet("{id}")]
+    [OutputCache(PolicyName = "Cache30s")]
     [ProducesResponseType(typeof(ProjectResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetailsResponse), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetById(string id, CancellationToken cancellationToken)
@@ -26,14 +30,20 @@ public sealed class ProjectsController(IMediator mediator) : ControllerBase
 
         if (result.IsSuccess)
         {
+            if (!string.IsNullOrEmpty(result.Value!.ETag))
+            {
+                Response.Headers.ETag = result.Value!.ETag;
+            }
             return Ok(result.Value);
         }
 
-        var problemDetails = Shared.ProblemDetailsFactory.FromError(result.Error!, HttpContext.Request.Path.Value);
+        var correlationId = HttpContext.Response.Headers[CorrelationIdMiddleware.HeaderName].ToString();
+        var problemDetails = Shared.ProblemDetailsFactory.FromError(result.Error!, HttpContext.Request.Path.Value, correlationId);
         return StatusCode(problemDetails.Status, problemDetails);
     }
 
     [HttpGet]
+    [OutputCache(PolicyName = "CacheList30s")]
     [ProducesResponseType(typeof(PaginatedList<ProjectListItemResponse>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetProjects(
         [FromQuery] int pageNumber = 1,
@@ -49,7 +59,8 @@ public sealed class ProjectsController(IMediator mediator) : ControllerBase
             return Ok(result.Value);
         }
 
-        var problemDetails = Shared.ProblemDetailsFactory.FromError(result.Error!, HttpContext.Request.Path.Value);
+        var correlationId = HttpContext.Response.Headers[CorrelationIdMiddleware.HeaderName].ToString();
+        var problemDetails = Shared.ProblemDetailsFactory.FromError(result.Error!, HttpContext.Request.Path.Value, correlationId);
         return StatusCode(problemDetails.Status, problemDetails);
     }
 
@@ -68,7 +79,8 @@ public sealed class ProjectsController(IMediator mediator) : ControllerBase
             return CreatedAtAction(nameof(GetById), new { id = result.Value!.Id }, result.Value);
         }
 
-        var problemDetails = Shared.ProblemDetailsFactory.FromError(result.Error!, HttpContext.Request.Path.Value);
+        var correlationId = HttpContext.Response.Headers[CorrelationIdMiddleware.HeaderName].ToString();
+        var problemDetails = Shared.ProblemDetailsFactory.FromError(result.Error!, HttpContext.Request.Path.Value, correlationId);
         return StatusCode(problemDetails.Status, problemDetails);
     }
 
@@ -79,7 +91,9 @@ public sealed class ProjectsController(IMediator mediator) : ControllerBase
     public async Task<IActionResult> Update(string id, [FromBody] UpdateProjectRequest request,
         CancellationToken cancellationToken)
     {
-        var command = new UpdateProjectCommand(id, request.Name, request.Description);
+        var ifMatch = Request.Headers[HeaderNames.IfMatch].FirstOrDefault();
+        var command = new UpdateProjectCommand(id, request.Name, request.Description)
+            with { IfMatch = ifMatch };
         var result = await mediator.Send(command, cancellationToken);
 
         if (result.IsSuccess)
@@ -87,7 +101,8 @@ public sealed class ProjectsController(IMediator mediator) : ControllerBase
             return Ok(result.Value);
         }
 
-        var problemDetails = Shared.ProblemDetailsFactory.FromError(result.Error!, HttpContext.Request.Path.Value);
+        var correlationId = HttpContext.Response.Headers[CorrelationIdMiddleware.HeaderName].ToString();
+        var problemDetails = Shared.ProblemDetailsFactory.FromError(result.Error!, HttpContext.Request.Path.Value, correlationId);
         return StatusCode(problemDetails.Status, problemDetails);
     }
 
@@ -96,7 +111,8 @@ public sealed class ProjectsController(IMediator mediator) : ControllerBase
     [ProducesResponseType(typeof(ProblemDetailsResponse), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Delete(string id, CancellationToken cancellationToken)
     {
-        var command = new DeleteProjectCommand(id);
+        var ifMatch = Request.Headers[HeaderNames.IfMatch].FirstOrDefault();
+        var command = new DeleteProjectCommand(id) { IfMatch = ifMatch };
         var result = await mediator.Send(command, cancellationToken);
 
         if (result.IsSuccess)
@@ -104,7 +120,8 @@ public sealed class ProjectsController(IMediator mediator) : ControllerBase
             return NoContent();
         }
 
-        var problemDetails = Shared.ProblemDetailsFactory.FromError(result.Error!, HttpContext.Request.Path.Value);
+        var correlationId = HttpContext.Response.Headers[CorrelationIdMiddleware.HeaderName].ToString();
+        var problemDetails = Shared.ProblemDetailsFactory.FromError(result.Error!, HttpContext.Request.Path.Value, correlationId);
         return StatusCode(problemDetails.Status, problemDetails);
     }
 }

@@ -13,9 +13,12 @@ public sealed record UpdateTaskCommand(
     TaskItemStatus Status,
     Priority Priority,
     DateTime? DueDate,
-    string[] Tags) : IRequest<Result<TaskResponse>>;
+    string[] Tags) : IRequest<Result<TaskResponse>>
+{
+    public string? IfMatch { get; init; }
+}
 
-public sealed class UpdateTaskCommandHandler(ITaskRepository taskRepository, IDateTimeProvider dateTimeProvider)
+public sealed class UpdateTaskCommandHandler(ITaskRepository taskRepository, IDateTimeProvider dateTimeProvider, ICacheService cache)
     : IRequestHandler<UpdateTaskCommand, Result<TaskResponse>>
 {
     public async Task<Result<TaskResponse>> Handle(UpdateTaskCommand request, CancellationToken cancellationToken)
@@ -24,6 +27,14 @@ public sealed class UpdateTaskCommandHandler(ITaskRepository taskRepository, IDa
         if (task == null)
         {
             return Result<TaskResponse>.Failure(new Error("TASK_NOT_FOUND", $"Task with ID '{request.Id}' not found."));
+        }
+
+        // Concurrency check via ETag (If-Match)
+        var currentEtag = ETagGenerator.From(task.Id.ToString(), task.UpdatedAt);
+        if (!string.IsNullOrWhiteSpace(request.IfMatch) && !string.Equals(request.IfMatch, currentEtag, StringComparison.Ordinal))
+        {
+            return Result<TaskResponse>.Failure(
+                new Error("PRECONDITION_FAILED", "The resource has been modified. ETag mismatch."));
         }
 
         task.Title = request.Title;
@@ -35,6 +46,10 @@ public sealed class UpdateTaskCommandHandler(ITaskRepository taskRepository, IDa
         task.UpdatedAt = dateTimeProvider.UtcNow;
 
         await taskRepository.UpdateAsync(task, cancellationToken);
+
+        // Invalidate caches for this task and related lists
+        await cache.RemoveAsync($"tasks:{task.Id}", cancellationToken);
+        await cache.RemoveByPatternAsync($"tasks:project:{task.ProjectId}:*", cancellationToken);
 
         var response = new TaskResponse
         {
@@ -48,7 +63,8 @@ public sealed class UpdateTaskCommandHandler(ITaskRepository taskRepository, IDa
             DueDate = task.DueDate,
             Tags = task.Tags,
             CreatedAt = task.CreatedAt,
-            UpdatedAt = task.UpdatedAt
+            UpdatedAt = task.UpdatedAt,
+            ETag = ETagGenerator.From(task.Id.ToString(), task.UpdatedAt)
         };
 
         return Result<TaskResponse>.Success(response);

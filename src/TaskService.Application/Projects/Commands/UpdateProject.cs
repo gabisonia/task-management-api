@@ -1,5 +1,6 @@
 using FluentValidation;
 using MediatR;
+using TaskService.Application.Abstractions;
 using TaskService.Application.Dtos.Projects;
 using TaskService.Domain.ProjectManagement;
 using TaskService.Shared;
@@ -7,7 +8,10 @@ using TaskService.Shared;
 namespace TaskService.Application.Projects.Commands;
 
 public sealed record UpdateProjectCommand(string Id, string Name, string? Description)
-    : IRequest<Result<ProjectResponse>>;
+    : IRequest<Result<ProjectResponse>>
+{
+    public string? IfMatch { get; init; }
+}
 
 public sealed class UpdateProjectCommandValidator : AbstractValidator<UpdateProjectCommand>
 {
@@ -23,7 +27,8 @@ public sealed class UpdateProjectCommandValidator : AbstractValidator<UpdateProj
 
 public sealed class UpdateProjectCommandHandler(
     IProjectRepository projectRepository,
-    IDateTimeProvider dateTimeProvider)
+    IDateTimeProvider dateTimeProvider,
+    ICacheService cache)
     : IRequestHandler<UpdateProjectCommand, Result<ProjectResponse>>
 {
     public async Task<Result<ProjectResponse>> Handle(UpdateProjectCommand request, CancellationToken cancellationToken)
@@ -33,6 +38,14 @@ public sealed class UpdateProjectCommandHandler(
         {
             return Result<ProjectResponse>.Failure(
                 new Error("PROJECT_NOT_FOUND", $"Project with ID '{request.Id}' not found."));
+        }
+
+        // Concurrency check via ETag (If-Match)
+        var currentEtag = ETagGenerator.From(project.Id.ToString(), project.UpdatedAt);
+        if (!string.IsNullOrWhiteSpace(request.IfMatch) && !string.Equals(request.IfMatch, currentEtag, StringComparison.Ordinal))
+        {
+            return Result<ProjectResponse>.Failure(
+                new Error("PRECONDITION_FAILED", "The resource has been modified. ETag mismatch."));
         }
 
         bool exists =
@@ -49,6 +62,10 @@ public sealed class UpdateProjectCommandHandler(
 
         await projectRepository.UpdateAsync(project, cancellationToken);
 
+        // Invalidate caches related to this project
+        await cache.RemoveAsync($"projects:{project.Id}", cancellationToken);
+        await cache.RemoveByPatternAsync($"projects:list:{project.OwnerId}:*", cancellationToken);
+
         var response = new ProjectResponse
         {
             Id = project.Id.ToString(),
@@ -56,7 +73,8 @@ public sealed class UpdateProjectCommandHandler(
             Name = project.Name,
             Description = project.Description,
             CreatedAt = project.CreatedAt,
-            UpdatedAt = project.UpdatedAt
+            UpdatedAt = project.UpdatedAt,
+            ETag = ETagGenerator.From(project.Id.ToString(), project.UpdatedAt)
         };
 
         return Result<ProjectResponse>.Success(response);

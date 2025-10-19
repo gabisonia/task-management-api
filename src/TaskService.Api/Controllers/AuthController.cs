@@ -4,6 +4,7 @@ using System.Text.Json;
 using TaskService.Application.Abstractions;
 using TaskService.Application.Dtos.Auth;
 using TaskService.Shared;
+using TaskService.Api.Middleware;
 
 namespace TaskService.Api.Controllers;
 
@@ -24,8 +25,9 @@ public sealed class AuthController(ISupabaseAuthService authService) : Controlle
             return Ok(result.Value);
         }
 
+        var correlationId = HttpContext.Response.Headers[CorrelationIdMiddleware.HeaderName].ToString();
         ProblemDetailsResponse problemDetails =
-            Shared.ProblemDetailsFactory.FromError(result.Error!, HttpContext.Request.Path.Value);
+            Shared.ProblemDetailsFactory.FromError(result.Error!, HttpContext.Request.Path.Value, correlationId);
         return StatusCode(problemDetails.Status, problemDetails);
     }
 
@@ -42,8 +44,9 @@ public sealed class AuthController(ISupabaseAuthService authService) : Controlle
             return Ok(result.Value);
         }
 
+        var correlationId = HttpContext.Response.Headers[CorrelationIdMiddleware.HeaderName].ToString();
         ProblemDetailsResponse problemDetails =
-            Shared.ProblemDetailsFactory.FromError(result.Error!, HttpContext.Request.Path.Value);
+            Shared.ProblemDetailsFactory.FromError(result.Error!, HttpContext.Request.Path.Value, correlationId);
         return StatusCode(problemDetails.Status, problemDetails);
     }
 
@@ -92,13 +95,15 @@ public sealed class AuthController(ISupabaseAuthService authService) : Controlle
             try
             {
                 using var doc = JsonDocument.Parse(userMetadataJson);
-                if (doc.RootElement.TryGetProperty("email_verified", out var evProp) && evProp.ValueKind == JsonValueKind.True)
+                if (doc.RootElement.TryGetProperty("email_verified", out var evProp) &&
+                    evProp.ValueKind == JsonValueKind.True)
                 {
                     emailVerified = true;
                 }
             }
             catch { }
         }
+
         var role = User.FindFirst("role")?.Value;
 
         if (string.IsNullOrEmpty(userId))

@@ -9,6 +9,9 @@ using TaskService.Application.Dtos.Tasks;
 using TaskService.Application.Tasks.Queries;
 using TaskService.Shared;
 using TaskService.Domain.TaskItemManagement;
+using Microsoft.AspNetCore.OutputCaching;
+using TaskService.Api.Middleware;
+using Microsoft.Net.Http.Headers;
 
 namespace TaskService.Api.Controllers;
 
@@ -18,43 +21,51 @@ namespace TaskService.Api.Controllers;
 [Authorize]
 public sealed class TasksController(IMediator mediator) : ControllerBase
 {
-    [HttpGet("{id}")]
-    [ProducesResponseType(typeof(TaskResponse), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(ProblemDetailsResponse), StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> GetById(string id, CancellationToken cancellationToken)
+[HttpGet("{id}")]
+[OutputCache(PolicyName = "Cache30s")]
+[ProducesResponseType(typeof(TaskResponse), StatusCodes.Status200OK)]
+[ProducesResponseType(typeof(ProblemDetailsResponse), StatusCodes.Status404NotFound)]
+public async Task<IActionResult> GetById(string id, CancellationToken cancellationToken)
+{
+    var query = new GetTaskByIdQuery(id);
+    var result = await mediator.Send(query, cancellationToken);
+
+    if (result.IsSuccess)
     {
-        var query = new GetTaskByIdQuery(id);
-        var result = await mediator.Send(query, cancellationToken);
-
-        if (result.IsSuccess)
+        if (!string.IsNullOrEmpty(result.Value!.ETag))
         {
-            return Ok(result.Value);
+            Response.Headers.ETag = result.Value!.ETag;
         }
-
-        var problemDetails = Shared.ProblemDetailsFactory.FromError(result.Error!, HttpContext.Request.Path.Value);
-        return StatusCode(problemDetails.Status, problemDetails);
+        return Ok(result.Value);
     }
 
-    [HttpGet]
-    [ProducesResponseType(typeof(PaginatedList<TaskListItemResponse>), StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetTasks(
-        [FromQuery] string projectId,
-        [FromQuery] string? status = null,
-        [FromQuery] int pageNumber = 1,
-        [FromQuery] int pageSize = 20,
-        CancellationToken cancellationToken = default)
+    var correlationId = HttpContext.Response.Headers[CorrelationIdMiddleware.HeaderName].ToString();
+    var problemDetails = Shared.ProblemDetailsFactory.FromError(result.Error!, HttpContext.Request.Path.Value, correlationId);
+    return StatusCode(problemDetails.Status, problemDetails);
+}
+
+[HttpGet]
+[OutputCache(PolicyName = "CacheList30s")]
+[ProducesResponseType(typeof(PaginatedList<TaskListItemResponse>), StatusCodes.Status200OK)]
+public async Task<IActionResult> GetTasks(
+    [FromQuery] string projectId,
+    [FromQuery] string? status = null,
+    [FromQuery] int pageNumber = 1,
+    [FromQuery] int pageSize = 20,
+    CancellationToken cancellationToken = default)
+{
+    var query = new GetTasksQuery(projectId, status, pageNumber, pageSize);
+    var result = await mediator.Send(query, cancellationToken);
+
+    if (result.IsSuccess)
     {
-        var query = new GetTasksQuery(projectId, status, pageNumber, pageSize);
-        var result = await mediator.Send(query, cancellationToken);
-
-        if (result.IsSuccess)
-        {
-            return Ok(result.Value);
-        }
-
-        var problemDetails = Shared.ProblemDetailsFactory.FromError(result.Error!, HttpContext.Request.Path.Value);
-        return StatusCode(problemDetails.Status, problemDetails);
+        return Ok(result.Value);
     }
+
+    var correlationId = HttpContext.Response.Headers[CorrelationIdMiddleware.HeaderName].ToString();
+    var problemDetails = Shared.ProblemDetailsFactory.FromError(result.Error!, HttpContext.Request.Path.Value, correlationId);
+    return StatusCode(problemDetails.Status, problemDetails);
+}
 
     [HttpPost("projects/{projectId}/tasks")]
     [ProducesResponseType(typeof(TaskResponse), StatusCodes.Status201Created)]
@@ -84,7 +95,8 @@ public sealed class TasksController(IMediator mediator) : ControllerBase
             return CreatedAtAction(nameof(GetById), new { id = result.Value!.Id }, result.Value);
         }
 
-        var problemDetails = Shared.ProblemDetailsFactory.FromError(result.Error!, HttpContext.Request.Path.Value);
+        var correlationId = HttpContext.Response.Headers[CorrelationIdMiddleware.HeaderName].ToString();
+        var problemDetails = Shared.ProblemDetailsFactory.FromError(result.Error!, HttpContext.Request.Path.Value, correlationId);
         return StatusCode(problemDetails.Status, problemDetails);
     }
 
@@ -105,6 +117,7 @@ public sealed class TasksController(IMediator mediator) : ControllerBase
             priority = Priority.Medium;
         }
 
+        var ifMatch = Request.Headers[HeaderNames.IfMatch].FirstOrDefault();
         var command = new UpdateTaskCommand(
             id,
             request.Title,
@@ -112,7 +125,8 @@ public sealed class TasksController(IMediator mediator) : ControllerBase
             status,
             priority,
             request.DueDate,
-            request.Tags ?? []);
+            request.Tags ?? [])
+        { IfMatch = ifMatch };
 
         var result = await mediator.Send(command, cancellationToken);
 
@@ -121,7 +135,8 @@ public sealed class TasksController(IMediator mediator) : ControllerBase
             return Ok(result.Value);
         }
 
-        var problemDetails = Shared.ProblemDetailsFactory.FromError(result.Error!, HttpContext.Request.Path.Value);
+        var correlationId = HttpContext.Response.Headers[CorrelationIdMiddleware.HeaderName].ToString();
+        var problemDetails = Shared.ProblemDetailsFactory.FromError(result.Error!, HttpContext.Request.Path.Value, correlationId);
         return StatusCode(problemDetails.Status, problemDetails);
     }
 
@@ -130,7 +145,8 @@ public sealed class TasksController(IMediator mediator) : ControllerBase
     [ProducesResponseType(typeof(ProblemDetailsResponse), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Delete(string id, CancellationToken cancellationToken)
     {
-        var command = new DeleteTaskCommand(id);
+        var ifMatch = Request.Headers[HeaderNames.IfMatch].FirstOrDefault();
+        var command = new DeleteTaskCommand(id) { IfMatch = ifMatch };
         var result = await mediator.Send(command, cancellationToken);
 
         if (result.IsSuccess)
@@ -138,7 +154,8 @@ public sealed class TasksController(IMediator mediator) : ControllerBase
             return NoContent();
         }
 
-        var problemDetails = Shared.ProblemDetailsFactory.FromError(result.Error!, HttpContext.Request.Path.Value);
+        var correlationId = HttpContext.Response.Headers[CorrelationIdMiddleware.HeaderName].ToString();
+        var problemDetails = Shared.ProblemDetailsFactory.FromError(result.Error!, HttpContext.Request.Path.Value, correlationId);
         return StatusCode(problemDetails.Status, problemDetails);
     }
 }

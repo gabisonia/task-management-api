@@ -21,7 +21,8 @@ public sealed record CreateTaskCommand(
 public sealed class CreateTaskCommandHandler(
     ITaskRepository taskRepository,
     IProjectRepository projectRepository,
-    IDateTimeProvider dateTimeProvider)
+    IDateTimeProvider dateTimeProvider,
+    ICacheService cache)
     : IRequestHandler<CreateTaskCommand, Result<TaskResponse>>
 {
     public async Task<Result<TaskResponse>> Handle(CreateTaskCommand request, CancellationToken cancellationToken)
@@ -50,6 +51,9 @@ public sealed class CreateTaskCommandHandler(
         };
 
         await taskRepository.CreateAsync(task, cancellationToken);
+
+        // Invalidate tasks list caches for this project
+        await cache.RemoveByPatternAsync($"tasks:project:{request.ProjectId}:*", cancellationToken);
 
         var response = new TaskResponse
         {

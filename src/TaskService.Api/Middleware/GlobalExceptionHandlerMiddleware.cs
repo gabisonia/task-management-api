@@ -32,6 +32,7 @@ public sealed class GlobalExceptionHandlerMiddleware(
         context.Response.ContentType = "application/problem+json";
         context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
 
+        var correlationId = context.Response.Headers[CorrelationIdMiddleware.HeaderName].ToString();
         var problemDetails = new ProblemDetailsResponse
         {
             Status = context.Response.StatusCode,
@@ -41,7 +42,8 @@ public sealed class GlobalExceptionHandlerMiddleware(
                 : "An unexpected error occurred. Please try again later.",
             Type = $"https://httpstatuses.io/{context.Response.StatusCode}",
             Instance = context.Request.Path,
-            ErrorCode = "INTERNAL_SERVER_ERROR"
+            ErrorCode = "INTERNAL_SERVER_ERROR",
+            CorrelationId = string.IsNullOrWhiteSpace(correlationId) ? null : correlationId
         };
 
         var json = JsonSerializer.Serialize(problemDetails, JsonOptions);
