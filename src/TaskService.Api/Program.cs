@@ -4,10 +4,7 @@ using TaskService.Api.Middleware;
 using TaskService.Application;
 using TaskService.Infrastructure;
 using Microsoft.AspNetCore.HttpLogging;
-using Microsoft.AspNetCore.RateLimiting;
 using System.Threading.RateLimiting;
-using Microsoft.AspNetCore.OutputCaching;
-using Microsoft.Net.Http.Headers;
 
 Log.Logger = new LoggerConfiguration()
     .WriteTo.Console(new CompactJsonFormatter())
@@ -101,7 +98,7 @@ try
     builder.Services.AddHttpLogging(options =>
     {
         options.LoggingFields = HttpLoggingFields.RequestPropertiesAndHeaders |
-                                 HttpLoggingFields.ResponsePropertiesAndHeaders;
+                                HttpLoggingFields.ResponsePropertiesAndHeaders;
         options.RequestHeaders.Add("x-api-version");
         options.ResponseHeaders.Add("x-correlation-id");
     });
@@ -118,7 +115,6 @@ try
         ];
     });
 
-    // Output caching for GET endpoints
     builder.Services.AddOutputCache(options =>
     {
         options.AddPolicy("Cache30s", b => b
@@ -138,20 +134,17 @@ try
         options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
         {
             string key = context.Connection.RemoteIpAddress?.ToString() ?? "anonymous";
-            return RateLimitPartition.GetFixedWindowLimiter(key, _ => new FixedWindowRateLimiterOptions
-            {
-                PermitLimit = 100,
-                Window = TimeSpan.FromMinutes(1),
-                QueueLimit = 0,
-                AutoReplenishment = true
-            });
+            return RateLimitPartition.GetFixedWindowLimiter(key,
+                _ => new FixedWindowRateLimiterOptions
+                {
+                    PermitLimit = 100, Window = TimeSpan.FromMinutes(1), QueueLimit = 0, AutoReplenishment = true
+                });
         });
         options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
     });
 
     WebApplication app = builder.Build();
 
-    // Correlation ID first for consistent tracing
     app.UseMiddleware<CorrelationIdMiddleware>();
 
     app.UseMiddleware<GlobalExceptionHandlerMiddleware>();
@@ -172,7 +165,6 @@ try
     app.UseHttpsRedirection();
     app.UseResponseCompression();
 
-    // Security headers
     app.UseMiddleware<SecurityHeadersMiddleware>();
 
     app.UseRateLimiter();

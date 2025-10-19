@@ -42,7 +42,8 @@ public sealed class UpdateProjectCommandHandler(
 
         // Concurrency check via ETag (If-Match)
         var currentEtag = ETagGenerator.From(project.Id.ToString(), project.UpdatedAt);
-        if (!string.IsNullOrWhiteSpace(request.IfMatch) && !string.Equals(request.IfMatch, currentEtag, StringComparison.Ordinal))
+        if (!string.IsNullOrWhiteSpace(request.IfMatch) &&
+            !string.Equals(request.IfMatch, currentEtag, StringComparison.Ordinal))
         {
             return Result<ProjectResponse>.Failure(
                 new Error("PRECONDITION_FAILED", "The resource has been modified. ETag mismatch."));

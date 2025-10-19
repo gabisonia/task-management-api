@@ -35,7 +35,7 @@ public sealed class SupabaseAuthService : ISupabaseAuthService
         if (!string.IsNullOrWhiteSpace(apiKey))
         {
             _httpClient.DefaultRequestHeaders.Add("apikey", apiKey);
-            // Some endpoints expect Authorization: Bearer <anon_key>
+
             if (!_httpClient.DefaultRequestHeaders.Contains("Authorization"))
             {
                 _httpClient.DefaultRequestHeaders.Authorization =
@@ -81,7 +81,6 @@ public sealed class SupabaseAuthService : ISupabaseAuthService
             var supabaseResponse = await response.Content
                 .ReadFromJsonAsync<SupabaseAuthResponse>(_jsonOptions, cancellationToken);
 
-            // Ignore session return; clients will log in after registration to get a token.
             var userEmail = supabaseResponse?.User?.Email ?? request.Email;
             var displayName = supabaseResponse?.User?.UserMetadata?.DisplayName ?? request.DisplayName;
             var resultPayload = new AuthResponse
@@ -95,7 +94,7 @@ public sealed class SupabaseAuthService : ISupabaseAuthService
                     Email = userEmail,
                     DisplayName = displayName,
                     EmailVerified = supabaseResponse?.User?.EmailConfirmedAt != null,
-                    Roles = supabaseResponse?.User?.Role != null ? new[] { supabaseResponse.User.Role } : Array.Empty<string>()
+                    Roles = supabaseResponse?.User?.Role != null ? [supabaseResponse.User.Role] : []
                 }
             };
 
@@ -164,7 +163,6 @@ public sealed class SupabaseAuthService : ISupabaseAuthService
 
     private static AuthResponse MapToAuthResponse(SupabaseAuthResponse supabaseResponse)
     {
-        // Supabase returns expires_in as a relative duration (seconds)
         var expiresAt = DateTime.UtcNow;
         try
         {
@@ -190,8 +188,8 @@ public sealed class SupabaseAuthService : ISupabaseAuthService
                 DisplayName = supabaseResponse.User?.UserMetadata?.DisplayName,
                 EmailVerified = supabaseResponse.User?.EmailConfirmedAt != null,
                 Roles = supabaseResponse.User?.Role != null
-                    ? new[] { supabaseResponse.User.Role }
-                    : Array.Empty<string>()
+                    ? [supabaseResponse.User.Role]
+                    : []
             }
         };
     }

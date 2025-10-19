@@ -10,7 +10,7 @@ public static class ETagGenerator
         var input = Encoding.UTF8.GetBytes($"{id}:{updatedAt.Ticks}");
         var hash = SHA256.HashData(input);
         var base64 = Convert.ToBase64String(hash);
-        return $"\"{base64}\""; // strong ETag format
+        return $"\"{base64}\"";
     }
 }
 

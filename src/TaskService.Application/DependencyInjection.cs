@@ -17,10 +17,8 @@ public static class DependencyInjection
             cfg.RegisterServicesFromAssembly(assembly);
         });
 
-        // Register validators from Application assembly
         services.AddValidatorsFromAssembly(assembly, includeInternalTypes: true);
 
-        // Pipeline behaviors
         services.AddTransient(typeof(IPipelineBehavior<,>), typeof(LoggingBehavior<,>));
         services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
 
