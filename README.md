@@ -16,6 +16,20 @@ TaskService is a .NET 8 Web API for managing projects and tasks. It follows a cl
 - Supabase Auth (JWT HS256): standards‑based auth with server‑validated tokens
 - Serilog + HTTP logging: structured, machine‑parseable logs suitable for centralized collection
 
+## How to Run
+There are two ways to run the service locally:
+
+1) .NET CLI (no Docker)
+   - `dotnet restore`
+   - `dotnet build`
+   - `dotnet run --project src/TaskService.Api`
+   - Swagger (Development): `http://localhost:5214/swagger`
+
+2) Docker Compose (API + MongoDB + Redis)
+   - `docker compose up -d --build`
+   - API: `http://localhost:5214/swagger`
+   - Stop: `docker compose down`
+
 ## Local Setup Instructions (step‑by‑step)
 1) Prerequisites
    - .NET 8 SDK
@@ -50,11 +64,38 @@ TaskService is a .NET 8 Web API for managing projects and tasks. It follows a cl
 - Stop and remove containers:
   - `docker compose down`
 
+## Docker Compose (services & ports)
+The provided `docker-compose.yml` orchestrates the full stack for local development:
+
+- API (`api`)
+  - Dockerfile: `src/TaskService.Api/Dockerfile`
+  - Depends on: `mongo`, `redis`
+  - Port mapping: `5214:8080` (host:container)
+  - Key env vars: `MongoDB__ConnectionString`, `Redis__ConnectionString`, `Supabase__*`
+- MongoDB (`mongo`)
+  - Image: `mongo:6.0`
+  - Persistent volume: `mongo_data`
+- Redis (`redis`)
+  - Image: `redis:7-alpine`
+  - Persistent volume: `redis_data`
+
+Note on secrets: the compose file includes example Supabase values for convenience. Replace them with your own project values before running, and avoid committing secrets.
+
 ## How to Run Tests
 - Unit + Integration tests:
   - `dotnet test`
 - Coverage (collector configured in tests):
   - `dotnet test --collect:"XPlat Code Coverage"`
+
+## Central Package Management
+This solution uses .NET Central Package Management for NuGet versions via `Directory.Packages.props`.
+
+- Versions are defined once in: `Directory.Packages.props`
+- Project files use `<PackageReference Include="..." />` without `Version` attributes.
+- To add or bump a dependency:
+  - Add or update `<PackageVersion Include="Package.Id" Version="x.y.z" />` in `Directory.Packages.props`
+  - Reference it from the project with `<PackageReference Include="Package.Id" />`
+  - Run `dotnet restore` and `dotnet build`
 
 ## Environment Variables Explanation
 - MongoDB
