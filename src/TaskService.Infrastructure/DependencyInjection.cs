@@ -52,6 +52,8 @@ public static class DependencyInjection
         services.Configure<SupabaseOptions>(configuration.GetSection(SupabaseOptions.SectionName));
         services.AddHttpClient("Supabase");
         services.AddScoped<ISupabaseAuthService, SupabaseAuthService>();
+        services.AddHttpContextAccessor();
+        services.AddScoped<ICurrentUser, CurrentUserAccessor>();
 
         // JWT Authentication
         var supabaseOptions = configuration.GetSection(SupabaseOptions.SectionName).Get<SupabaseOptions>()
